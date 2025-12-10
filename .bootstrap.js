@@ -84,7 +84,8 @@ function runSetupCommands() {
     "bun add papaparse@^5.4.1",
     "bun add -D jsdom@^25.0.1",
     "bun install idb",
-    "bun install @xstate/react"
+    "bun install @xstate/react",
+    "bun add @xstate/react"
 ];
     
     if (commands.length === 0) {
