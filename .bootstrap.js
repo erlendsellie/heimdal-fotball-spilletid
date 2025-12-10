@@ -83,7 +83,8 @@ function runSetupCommands() {
     "bun add workbox-window@^7.1.0",
     "bun add papaparse@^5.4.1",
     "bun add -D jsdom@^25.0.1",
-    "bun install idb"
+    "bun install idb",
+    "bun install @xstate/react"
 ];
     
     if (commands.length === 0) {
