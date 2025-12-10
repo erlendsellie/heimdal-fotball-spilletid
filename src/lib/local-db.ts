@@ -77,9 +77,14 @@ export const db = {
     let cursor = await db.transaction('oplog').store.openCursor();
     while (cursor) {
       if (cursor.value.synced && cursor.value.ts < sevenDaysAgo) {
-        cursor.delete();
+        if (typeof cursor.delete === 'function') {
+          // await deletion to ensure proper ordering and satisfy TypeScript that delete is callable
+          await (cursor.delete as () => Promise<void>)();
+        }
       }
-      cursor = await cursor.continue();
+      // safely call continue if available, otherwise set to null to exit loop
+      // some environments may not have continue as a callable function
+      cursor = await (cursor.continue?.() ?? null);
     }
   },
 };

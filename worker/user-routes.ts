@@ -38,7 +38,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.use('/api/*', authMiddleware);
   const observerGuard = async (c: any, next: any) => {
     // This is a placeholder for real role checking from a decoded JWT
-    const userRole = 'trener'; // Assume trener for now
+    const userRole: User['role'] = (c.req.header('X-User-Role') || 'trener') as User['role'];
     if (userRole === 'observatør' && c.req.method !== 'GET') {
       return c.json({ success: false, error: 'Forbidden' }, 403);
     }

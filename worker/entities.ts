@@ -6,7 +6,10 @@ export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";
   static readonly indexName = "users";
   static readonly initialState: User = { id: "", name: "", email: "", passwordHash: "", role: "observatør" };
-  static override keyOf(state: User): string { return state.email; }
+  static override keyOf<U extends { id: string }>(state: U): string {
+    const s = state as unknown as User;
+    return s.email ?? s.id;
+  }
   static async findByEmail(env: Env, email: string): Promise<UserEntity | null> {
     const user = new UserEntity(env, email);
     if (await user.exists()) {

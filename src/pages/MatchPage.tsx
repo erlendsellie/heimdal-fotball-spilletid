@@ -48,12 +48,12 @@ export function MatchPage() {
   const handleTick = useCallback((elapsedMs: number) => {
     setMinutesPlayed(prev => {
       const newMinutes = { ...prev };
-      current.context.onField?.forEach(playerId => {
+      current?.context?.onField?.forEach((playerId: string) => {
         newMinutes[playerId] = (newMinutes[playerId] || 0) + (1 / 60);
       });
       return newMinutes;
     });
-  }, [current.context.onField]);
+  }, [current]);
   const handleSwapRequest = (playerId: string) => {
     toast.info(`Substitute request for player ${playerId}. Use drag & drop or suggestions.`);
   };
@@ -65,21 +65,21 @@ export function MatchPage() {
     toast.success('Substitution made!');
   };
   const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
-    const onField = current.context.onField ?? new Set();
-    const onBench = current.context.onBench ?? new Set();
+    const onField = current?.context?.onField ?? new Set();
+    const onBench = current?.context?.onBench ?? new Set();
     const field = players.filter(p => onField.has(p.id));
     const bench = players.filter(p => onBench.has(p.id));
     return [field, bench];
-  }, [players, current.context.onField, current.context.onBench]);
+  }, [players, current]);
   const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
+  const isRunning = useMemo(() => current.matches('running'), [current]);
   useEffect(() => {
-    const isRunning = current.matches('running');
     if (!isRunning) return;
     const interval = setInterval(() => {
       runSync();
     }, 5000);
     return () => clearInterval(interval);
-  }, [current.value]);
+  }, [isRunning]);
   if (!match) return <div className="center h-screen"><p>Loading match...</p></div>;
   return (
     <>
