@@ -1,13 +1,15 @@
 import { IndexedEntity, Env } from "./core-utils";
 import type { User, Player, Match, MatchEvent, Tournament, SubstitutionPayload } from "@shared/types";
-import { MOCK_PLAYERS, MOCK_MATCHES } from "@shared/mock-data";
+import { MOCK_USERS, MOCK_PLAYERS, MOCK_MATCHES } from "@shared/mock-data";
 // USER ENTITY for authentication
 export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";
   static readonly indexName = "users";
   static readonly initialState: User = { id: "", name: "", email: "", passwordHash: "", role: "observatør" };
-  static override keyOf(state: User): string {
-    return state.email ?? state.id;
+  static seedData = MOCK_USERS;
+  static override keyOf<T>(state: T): string {
+    const s = state as unknown as User;
+    return s.email ?? s.id;
   }
   static async findByEmail(env: Env, email: string): Promise<UserEntity | null> {
     const user = new UserEntity(env, email);
@@ -85,13 +87,14 @@ export class TournamentEntity extends IndexedEntity<Tournament> {
               (event.payload.initialLineup as string[]).forEach(pId => onField.add(pId));
             }
             break;
-          case 'SUBSTITUTION':
+          case 'SUBSTITUTION': {
             const payload = event.payload as SubstitutionPayload;
             if (payload) {
               onField.delete(payload.playerOutId);
               onField.add(payload.playerInId);
             }
             break;
+          }
           case 'PAUSE':
           case 'STOP':
             onField.clear();

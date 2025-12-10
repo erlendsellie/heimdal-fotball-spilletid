@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { bearerAuth } from 'hono/bearer-auth';
 import type { Env } from './core-utils';
 import { UserEntity, MatchEntity, TournamentEntity, PlayerEntity } from "./entities";
+import { MOCK_USERS } from "@shared/mock-data";
 import { ok, bad, notFound, isStr } from './core-utils';
 import type { MatchEvent, User } from "@shared/types";
 const DUMMY_TOKEN = "secret-token-for-dev";
@@ -9,10 +10,11 @@ const authMiddleware = bearerAuth({ token: DUMMY_TOKEN });
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.post('/api/seed', async (c) => {
     try {
+      await UserEntity.ensureSeed(c.env);
       const existingUser = await UserEntity.findByEmail(c.env, 'trener@heimdal.no');
       if (!existingUser) {
         const user: User = {
-          id: crypto.randomUUID(),
+          id: 'trener@heimdal.no',
           name: 'Trener Test',
           email: 'trener@heimdal.no',
           passwordHash: 'password123',
@@ -32,7 +34,15 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     try {
       const { email, password } = await c.req.json<{ email?: string, password?: string }>();
       if (!isStr(email) || !isStr(password)) return bad(c, 'Email and password required');
-      const userEntity = await UserEntity.findByEmail(c.env, email);
+      let userEntity = await UserEntity.findByEmail(c.env, email);
+      if (!userEntity) {
+        const mock = MOCK_USERS.find(u => u.email === email);
+        if (mock) {
+          const demoUser: User = { ...mock, id: email };
+          await UserEntity.create(c.env, demoUser);
+          userEntity = await UserEntity.findByEmail(c.env, email);
+        }
+      }
       if (!userEntity) return notFound(c, 'User not found');
       const user = await userEntity.getState();
       if (user.passwordHash !== password) {
