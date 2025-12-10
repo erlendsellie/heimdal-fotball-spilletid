@@ -1,20 +1,22 @@
 {
   "short_name": "Heimdal Spilletid",
   "name": "Heimdal Fotball Spilletid",
+  "description": "Spilletid & Bytte-verktøy for trenere",
+  "lang": "nb-NO",
   "icons": [
     {
-      "src": "https://via.placeholder.com/150x150/006400/ffffff?text=HF",
-      "sizes": "150x150",
+      "src": "https://via.placeholder.com/192x192/E55A1B/FFFFFF?text=Heimdal",
+      "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://via.placeholder.com/512x512/006400/ffffff?text=HF",
+      "src": "https://via.placeholder.com/512x512/E55A1B/FFFFFF?text=Heimdal",
       "sizes": "512x512",
       "type": "image/png"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#006400",
+  "theme_color": "#E55A1B",
   "background_color": "#FFFFFF"
 }

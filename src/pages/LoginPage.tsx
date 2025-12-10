@@ -9,7 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Toaster, toast } from '@/components/ui/sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { auth } from '@/lib/auth';
+import { useTranslation } from '@/lib/translations';
 export function LoginPage() {
+  const { t, language } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('trener@heimdal.no');
@@ -21,10 +23,10 @@ export function LoginPage() {
     setIsLoading(true);
     try {
       await auth.login(email, password);
-      toast.success('Vellykket innlogget!');
+      toast.success(t('login.success'));
       navigate(from, { replace: true });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Innlogging feilet. Sjekk brukernavn og passord.');
+      toast.error(t('login.error'));
     } finally {
       setIsLoading(false);
     }
@@ -42,17 +44,17 @@ export function LoginPage() {
             >
               <Card className="w-full max-w-md mx-auto shadow-2xl">
                 <CardHeader className="text-center">
-                  <img src="https://via.placeholder.com/150x150/006400/ffffff?text=HF" className="mx-auto h-16 w-16 mb-4 rounded-full bg-heimdal-yellow" alt="Heimdal Fotball Logo" />
-                  <div className="inline-block mx-auto bg-gradient-to-r from-heimdal-green to-heimdal-red p-3 rounded-full">
+                  <img src="https://via.placeholder.com/192x192/E55A1B/FFFFFF?text=Heimdal" className="mx-auto h-16 w-16 mb-4 rounded-full bg-heimdal-orange" alt="Heimdal Fotball Logo" />
+                  <div className="inline-block mx-auto bg-gradient-to-r from-heimdal-orange to-heimdal-navy p-3 rounded-full">
                     <ShieldCheck className="h-8 w-8 text-white" />
                   </div>
-                  <CardTitle className="text-3xl font-bold mt-4">Trener Innlogging</CardTitle>
-                  <CardDescription>Få tilgang til lagets kampoversikt.</CardDescription>
+                  <CardTitle className="text-3xl font-bold mt-4">{t('login.title')}</CardTitle>
+                  <CardDescription>{t('login.description')}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleLogin} className="space-y-6">
+                  <form onSubmit={handleLogin} className="space-y-6" lang={language}>
                     <div className="space-y-2">
-                      <Label htmlFor="email">E-post</Label>
+                      <Label htmlFor="email">{t('login.email')}</Label>
                       <Input
                         id="email"
                         type="email"
@@ -64,7 +66,7 @@ export function LoginPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="password">Passord</Label>
+                      <Label htmlFor="password">{t('login.password')}</Label>
                       <Input
                         id="password"
                         type="password"
@@ -74,8 +76,8 @@ export function LoginPage() {
                         disabled={isLoading}
                       />
                     </div>
-                    <Button type="submit" className="w-full bg-heimdal-red hover:bg-heimdal-red/90 text-white" disabled={isLoading}>
-                      {isLoading ? 'Logger inn...' : 'Logg Inn'}
+                    <Button type="submit" className="w-full bg-heimdal-orange hover:bg-heimdal-navy text-white" disabled={isLoading}>
+                      {isLoading ? t('login.loading') : t('login.submit')}
                     </Button>
                   </form>
                 </CardContent>

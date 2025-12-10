@@ -92,9 +92,9 @@ export default {
   		},
   		colors: {
         heimdal: {
-          green: '#006400',
-          red: '#DC143C',
-          yellow: '#FFD700',
+          orange: '#E55A1B',
+          navy: '#0B3D91',
+          white: '#FFFFFF',
         },
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -149,8 +149,8 @@ export default {
   		},
   		boxShadow: {
   			soft: '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
-  			glow: '0 0 20px -5px rgba(220, 20, 60, 0.4)',
-  			'glow-lg': '0 0 40px -10px rgba(220, 20, 60, 0.3)',
+  			glow: '0 0 20px -5px rgba(229, 90, 27, 0.4)',
+  			'glow-lg': '0 0 40px -10px rgba(229, 90, 27, 0.3)',
   			primary: '0 0 20px -5px hsl(var(--primary) / 0.4)',
   			glass: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
   		},
@@ -195,10 +195,10 @@ export default {
   			},
   			glow: {
   				'0%, 100%': {
-  					boxShadow: '0 0 20px -5px rgba(220, 20, 60, 0.4)'
+  					boxShadow: '0 0 20px -5px rgba(229, 90, 27, 0.4)'
   				},
   				'50%': {
-  					boxShadow: '0 0 40px -5px rgba(220, 20, 60, 0.6)'
+  					boxShadow: '0 0 40px -5px rgba(229, 90, 27, 0.6)'
   				}
   			},
   			float: {
@@ -237,9 +237,9 @@ export default {
   			'accordion-up': 'accordion-up 0.2s ease-out'
   		},
   		backgroundImage: {
-  			'gradient-rainbow': 'linear-gradient(135deg, #006400 0%, #DC143C 25%, #FFD700 50%, #DC143C 75%, #006400 100%)',
-  			'gradient-primary': 'linear-gradient(135deg, #006400, #004d00)',
-  			'gradient-mesh': 'radial-gradient(at 40% 20%, hsla(120,100%,20%,1) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(348,83%,47%,1) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(51,100%,50%,1) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(340,100%,76%,1) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(22,100%,77%,1) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(242,100%,70%,1) 0px, transparent 50%), radial-gradient(at 0% 0%, hsla(343,100%,76%,1) 0px, transparent 50%)'
+  			'gradient-rainbow': 'linear-gradient(135deg, #E55A1B 0%, #0B3D91 50%, #E55A1B 100%)',
+  			'gradient-primary': 'linear-gradient(135deg, #E55A1B, #D14615)',
+  			'gradient-mesh': 'radial-gradient(at 40% 20%, hsla(22,80%,50%,1) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(220,85%,30%,1) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(0,0%,100%,1) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(22,80%,50%,1) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(220,85%,30%,1) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(220,85%,30%,1) 0px, transparent 50%), radial-gradient(at 0% 0%, hsla(22,80%,50%,1) 0px, transparent 50%)'
   		}
   	}
   },

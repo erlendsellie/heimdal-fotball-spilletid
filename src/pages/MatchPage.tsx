@@ -14,7 +14,9 @@ import { matchMachine } from '@/lib/matchMachine';
 import { suggestSwaps } from '@/lib/substitutionSuggestions';
 import { runSync } from '@/lib/sync';
 import { Navigation } from '@/components/Navigation';
+import { useTranslation } from '@/lib/translations';
 export function MatchPage() {
+  const { t } = useTranslation();
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
   const [match, setMatch] = useState<Match | null>(null);
@@ -56,13 +58,11 @@ export function MatchPage() {
     });
   }, [current]);
   const handleSwapRequest = (playerId: string) => {
-    toast.info(`Bytteforespørsel for spiller ${playerId}. Bruk dra-og-slipp eller forslag.`);
+    toast.info(`Substitution request for player ${playerId}. Use drag-and-drop or suggestions.`);
   };
-  const handleLineupChange = (activeId: string, overId: string) => {
-    const playerOutId = activeId;
-    const playerInId = overId;
+  const handleLineupChange = (playerOutId: string, playerInId: string) => {
     send({ type: 'SUBSTITUTE', playerOutId, playerInId });
-    toast.success('Bytte utført!');
+    toast.success(t('match.substitutionMade'));
   };
   const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
     const onField = current?.context?.onField ?? new Set();
@@ -71,7 +71,7 @@ export function MatchPage() {
     const bench = players.filter(p => onBench.has(p.id));
     return [field, bench];
   }, [players, current]);
-  const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
+  const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even', t), [onFieldPlayers, onBenchPlayers, minutesPlayed, t]);
   const isRunning = useMemo(() => current.matches('running'), [current]);
   useEffect(() => {
     if (!isRunning) return;
@@ -80,7 +80,7 @@ export function MatchPage() {
     }, 5000);
     return () => clearInterval(interval);
   }, [isRunning]);
-  if (!match) return <div className="center h-screen"><p>Laster kamp...</p></div>;
+  if (!match) return <div className="center h-screen"><p>{t('match.loading')}</p></div>;
   return (
     <>
       <ThemeToggle className="fixed top-4 right-4 z-50" />
@@ -89,12 +89,12 @@ export function MatchPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-8 md:py-10 lg:py-12">
             <div className="flex items-center gap-4 mb-8">
-              <Button variant="outline" size="icon" onClick={() => navigate('/')}>
+              <Button variant="outline" size="icon" onClick={() => navigate('/')} aria-label="Back to dashboard">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-foreground">Live Kamp</h1>
-                <p className="text-muted-foreground">{match.teamId} mot {match.opponent}</p>
+                <h1 className="text-3xl md:text-4xl font-bold text-foreground">{t('match.liveTitle')}</h1>
+                <p className="text-muted-foreground">{match.teamId} {t('match.opponent')} {match.opponent}</p>
               </div>
             </div>
             <div className="space-y-8">
@@ -112,7 +112,7 @@ export function MatchPage() {
               />
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Lightbulb /> Bytteforslag</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><Lightbulb /> {t('match.suggestionsTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {suggestions.length > 0 ? (
@@ -120,11 +120,11 @@ export function MatchPage() {
                       {suggestions.map((s, i) => (
                         <li key={i} className="text-sm p-2 border rounded-md flex justify-between items-center">
                           <span><strong>Ut:</strong> {s.out.name}, <strong>Inn:</strong> {s.in.name} ({s.reason})</span>
-                          <Button size="sm" className="bg-heimdal-red hover:bg-heimdal-red/90 text-white" onClick={() => handleLineupChange(s.out.id, s.in.id)}>Utfør</Button>
+                          <Button size="sm" className="bg-heimdal-orange hover:bg-heimdal-navy text-white" onClick={() => handleLineupChange(s.out.id, s.in.id)}>{t('match.substitute')}</Button>
                         </li>
                       ))}
                     </ul>
-                  ) : <p className="text-sm text-muted-foreground">Ingen forslag tilgjengelig.</p>}
+                  ) : <p className="text-sm text-muted-foreground">{t('match.noSuggestions')}</p>}
                 </CardContent>
               </Card>
             </div>

@@ -1,11 +1,10 @@
-// This is a basic service worker. For production, use Workbox for more robustness.
-const CACHE_NAME = 'heimdal-spilletid-v1';
+const CACHE_NAME = 'heimdal-spilletid-v2';
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  // Add paths to your JS, CSS, and image assets here
 ];
+// Install: Open cache and add core assets
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -15,30 +14,60 @@ self.addEventListener('install', event => {
       })
   );
 });
+// Fetch: Apply caching strategies
 self.addEventListener('fetch', event => {
-  // For API calls, use a network-first strategy
-  if (event.request.url.includes('/api/')) {
+  const { request } = event;
+  // For API calls, use a stale-while-revalidate strategy
+  if (request.url.includes('/api/')) {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        // Optional: return a generic offline response for API calls
-        return new Response(JSON.stringify({ success: false, error: 'Offline' }), {
-          headers: { 'Content-Type': 'application/json' }
+      caches.open(CACHE_NAME).then(cache => {
+        return fetch(request).then(networkResponse => {
+          cache.put(request, networkResponse.clone());
+          return networkResponse;
+        }).catch(() => {
+          return cache.match(request);
         });
       })
     );
     return;
   }
-  // For other requests, use a cache-first strategy
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
+  // For navigation requests, use network-first, then cache, then fallback
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          // If successful, cache it
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(request, responseToCache);
+          });
           return response;
-        }
-        return fetch(event.request);
+        })
+        .catch(() => {
+          // If network fails, try the cache
+          return caches.match(request)
+            .then(response => {
+              return response || caches.match('/index.html'); // Fallback to home
+            });
+        })
+    );
+    return;
+  }
+  // For other requests (CSS, JS, images), use cache-first
+  event.respondWith(
+    caches.match(request)
+      .then(response => {
+        return response || fetch(request).then(networkResponse => {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(request, responseToCache);
+          });
+          return networkResponse;
+        });
       })
   );
 });
+// Activate: Clean up old caches
 self.addEventListener('activate', event => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
@@ -52,4 +81,13 @@ self.addEventListener('activate', event => {
       );
     })
   );
+});
+// Background Sync (conceptual - requires registration from client-side)
+self.addEventListener('sync', event => {
+  if (event.tag === 'oplog-sync') {
+    console.log('Background sync triggered for oplog-sync');
+    // In a real app, you would have a function here to read from IndexedDB
+    // and send data to the server.
+    // event.waitUntil(syncOplogToServer());
+  }
 });
