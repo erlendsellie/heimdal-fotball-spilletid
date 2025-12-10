@@ -14,8 +14,8 @@ export default {
   				'sans-serif'
   			],
   			display: [
-  				'Cal Sans',
-  				'Inter',
+  				'Sora',
+          'Inter',
   				'system-ui',
   				'sans-serif'
   			],
@@ -91,6 +91,10 @@ export default {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
+        heimdal: {
+          orange: '#E55A1B',
+          navy: '#0B3D91',
+        },
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			muted: {

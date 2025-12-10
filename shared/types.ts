@@ -3,22 +3,51 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
 }
-
 // Minimal real-world chat example types (shared by frontend and worker)
 export interface User {
   id: string;
   name: string;
 }
-
 export interface Chat {
   id: string;
   title: string;
 }
-
 export interface ChatMessage {
   id: string;
   chatId: string;
   userId: string;
   text: string;
   ts: number; // epoch millis
+}
+// Heimdal Fotball Types
+export interface Player {
+  id: string;
+  teamId: string;
+  name: string;
+  number: number;
+  position: 'Goalkeeper' | 'Defense' | 'Midfield' | 'Forward';
+  // metadata?: Record<string, any>;
+}
+export interface Match {
+  id: string;
+  teamId: string;
+  opponent: string;
+  duration_minutes: number;
+  status: 'Klar' | 'Pågående' | 'Fullf��rt';
+  events: MatchEvent[];
+  // start_time?: number;
+}
+export type MatchEventType = 'START' | 'PAUSE' | 'RESUME' | 'STOP' | 'SUBSTITUTION';
+export interface MatchEvent {
+  id: string;
+  matchId: string;
+  type: MatchEventType;
+  ts: number; // epoch millis
+  payload?: Record<string, any>;
+  synced: boolean;
+}
+export interface SubstitutionPayload {
+  playerOutId: string;
+  playerInId: string;
+  minute: number;
 }

@@ -12,17 +12,26 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import '@/index.css'
 import { HomePage } from '@/pages/HomePage'
-
+import { MatchPage } from '@/pages/MatchPage';
+import { register } from './registerServiceWorker';
 const queryClient = new QueryClient();
-
 const router = createBrowserRouter([
   {
     path: "/",
     element: <HomePage />,
     errorElement: <RouteErrorBoundary />,
   },
+  {
+    path: "/match/:matchId",
+    element: <MatchPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/tournament", // Placeholder, routes to dashboard
+    element: <HomePage />,
+    errorElement: <RouteErrorBoundary />,
+  }
 ]);
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -32,4 +41,4 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 )
-   
+register();
