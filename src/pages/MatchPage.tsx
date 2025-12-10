@@ -33,14 +33,11 @@ export function MatchPage() {
       const initialOnBench = new Set(playersData.slice(7).map(p => p.id));
       send({
         type: 'RESET',
-        ...{
-          context: {
-            ...matchMachine.context,
+        context: {
             onField: initialOnField,
             onBench: initialOnBench,
             players: playersData,
             durationMs: (matchData?.duration_minutes || 45) * 60 * 1000,
-          }
         }
       });
       const initialMinutes = playersData.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {});
@@ -51,7 +48,7 @@ export function MatchPage() {
   const handleTick = useCallback((elapsedMs: number) => {
     setMinutesPlayed(prev => {
       const newMinutes = { ...prev };
-      current.context.onField.forEach(playerId => {
+      current.context.onField?.forEach(playerId => {
         newMinutes[playerId] = (newMinutes[playerId] || 0) + (1 / 60);
       });
       return newMinutes;
@@ -68,8 +65,10 @@ export function MatchPage() {
     toast.success('Substitution made!');
   };
   const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
-    const field = players.filter(p => current.context.onField.has(p.id));
-    const bench = players.filter(p => current.context.onBench.has(p.id));
+    const onField = current.context.onField ?? new Set();
+    const onBench = current.context.onBench ?? new Set();
+    const field = players.filter(p => onField.has(p.id));
+    const bench = players.filter(p => onBench.has(p.id));
     return [field, bench];
   }, [players, current.context.onField, current.context.onBench]);
   const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
@@ -80,7 +79,7 @@ export function MatchPage() {
       runSync();
     }, 5000);
     return () => clearInterval(interval);
-  }, [current]);
+  }, [current.value]);
   if (!match) return <div className="center h-screen"><p>Loading match...</p></div>;
   return (
     <>

@@ -5,7 +5,7 @@ import { MOCK_PLAYERS, MOCK_MATCHES } from "@shared/mock-data";
 export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";
   static readonly indexName = "users";
-  static readonly initialState: User = { id: "", name: "", email: "", passwordHash: "", role: "observer" };
+  static readonly initialState: User = { id: "", name: "", email: "", passwordHash: "", role: "observatør" };
   static override keyOf(state: User): string { return state.email; }
   static async findByEmail(env: Env, email: string): Promise<UserEntity | null> {
     const user = new UserEntity(env, email);

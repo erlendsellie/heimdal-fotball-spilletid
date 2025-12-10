@@ -1,7 +1,7 @@
 import type { User, Chat, ChatMessage, Player, Match } from './types';
 export const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'User A' },
-  { id: 'u2', name: 'User B' }
+  { id: 'u1', name: 'Trener Test', email: 'trener@heimdal.no', passwordHash: 'password123', role: 'trener' },
+  { id: 'u2', name: 'Assistent Test', email: 'assistent@heimdal.no', passwordHash: 'password123', role: 'assistent' }
 ];
 export const MOCK_CHATS: Chat[] = [
   { id: 'c1', title: 'General' },

@@ -15,7 +15,7 @@ export type MatchMachineEvent =
   | { type: 'STOP' }
   | { type: 'TICK'; delta: number }
   | { type: 'SUBSTITUTE'; playerOutId: string; playerInId: string }
-  | { type: 'RESET' };
+  | { type: 'RESET'; context?: Partial<MatchContext> };
 export const matchMachine = createMachine({
   id: 'match',
   types: {} as { context: MatchContext; events: MatchMachineEvent },
@@ -23,8 +23,8 @@ export const matchMachine = createMachine({
   context: {
     elapsedMs: 0,
     durationMs: 45 * 60 * 1000,
-    onField: new Set(),
-    onBench: new Set(),
+    onField: new Set<string>(),
+    onBench: new Set<string>(),
     events: [],
     players: [],
   },
@@ -46,13 +46,13 @@ export const matchMachine = createMachine({
         SUBSTITUTE: {
           actions: assign({
             onField: ({ context, event }) => {
-              const newOnField = new Set(context.onField);
+              const newOnField = new Set<string>(context.onField);
               newOnField.delete(event.playerOutId);
               newOnField.add(event.playerInId);
               return newOnField;
             },
             onBench: ({ context, event }) => {
-              const newOnBench = new Set(context.onBench);
+              const newOnBench = new Set<string>(context.onBench);
               newOnBench.delete(event.playerInId);
               newOnBench.add(event.playerOutId);
               return newOnBench;
@@ -71,12 +71,23 @@ export const matchMachine = createMachine({
       on: {
         RESET: {
           target: 'idle',
-          actions: assign({
+          actions: assign( ({ event }) => ({
             elapsedMs: 0,
             events: [],
-          }),
+            ...event.context,
+          })),
         },
       },
     },
   },
+  on: {
+    RESET: {
+      target: '.idle',
+      actions: assign( ({ event }) => ({
+        elapsedMs: 0,
+        events: [],
+        ...event.context,
+      })),
+    }
+  }
 });

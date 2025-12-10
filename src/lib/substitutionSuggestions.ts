@@ -13,7 +13,7 @@ export function suggestSwaps(
 ): Suggestion[] {
   if (onBenchPlayers.length === 0) return [];
   switch (strategy) {
-    case 'even':
+    case 'even': {
       // Suggest swapping the player who has played the most with the one who has played the least.
       const sortedField = [...onFieldPlayers].sort((a, b) => (minutesPlayed[b.id] || 0) - (minutesPlayed[a.id] || 0));
       const sortedBench = [...onBenchPlayers].sort((a, b) => (minutesPlayed[a.id] || 0) - (minutesPlayed[b.id] || 0));
@@ -26,7 +26,8 @@ export function suggestSwaps(
           reason: `Even playing time. ${playerOut.name} has played ${Math.floor(minutesPlayed[playerOut.id] || 0)} min.`,
         };
       }).filter((s): s is Suggestion => s !== null);
-    case 'refresh':
+    }
+    case 'refresh': {
       // Suggest swapping players who have been on the longest in this stint (not implemented, using total time as proxy)
       const fieldByTime = [...onFieldPlayers].sort((a, b) => (minutesPlayed[b.id] || 0) - (minutesPlayed[a.id] || 0));
       const freshLegs = onBenchPlayers.filter(p => (minutesPlayed[p.id] || 0) < 10); // Example: less than 10 mins played
@@ -39,6 +40,7 @@ export function suggestSwaps(
           reason: `Refresh with fresh legs.`,
         };
       }).filter((s): s is Suggestion => s !== null);
+    }
     default:
       return [];
   }
