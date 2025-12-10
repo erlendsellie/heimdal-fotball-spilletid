@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { suggestSwaps } from '../src/lib/substitutionSuggestions';
+import { pollMatch } from '../src/lib/sync';
 import type { Player } from '../shared/types';
 const MOCK_FIELD_PLAYERS: Player[] = [
   { id: 'p1', name: 'Player 1', number: 1, position: 'Forward', teamId: 't1' },
@@ -25,6 +26,26 @@ describe('Substitution Logic', () => {
     // Player 4 has played the least (0), should be suggested to be swapped in
     expect(suggestions[0].out.id).toBe('p1');
     expect(suggestions[0].in.id).toBe('p4');
+  });
+  it('handles empty bench gracefully', () => {
+    const minutesPlayed = { p1: 45, p2: 30, p3: 40 };
+    const suggestions = suggestSwaps(MOCK_FIELD_PLAYERS, [], minutesPlayed, 'even');
+    expect(suggestions).toEqual([]);
+  });
+});
+describe('Sync Logic', () => {
+  it('pollMatch returns lastTs on offline error', async () => {
+    // Mocking a global fetch is tricky with vitest, so we mock the api client instead
+    vi.mock('../src/lib/api-client', () => ({
+      api: vi.fn().mockRejectedValue(new Error('offline')),
+    }));
+    // We can't directly test the global fetch used by the real api client,
+    // but we can test the behavior of pollMatch assuming the underlying api call fails.
+    // This test is more conceptual without a full MSW setup.
+    // Let's assume pollMatch catches the error and returns lastSyncTs.
+    const lastTs = 12345;
+    const result = await pollMatch('m1', lastTs).catch(e => e); // The implementation now catches internally
+    expect(result).toBe(lastTs);
   });
 });
 describe('Match Clock Logic', () => {

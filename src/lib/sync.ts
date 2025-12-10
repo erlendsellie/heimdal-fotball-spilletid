@@ -3,14 +3,19 @@ import db from './local-db';
 import { auth } from './auth';
 import type { MatchEvent } from '@shared/types';
 import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
 let isSyncing = false;
 let retryCount = 0;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 export async function runSync(isManual = false) {
-  if (isSyncing || !navigator.onLine) {
-    if (isManual) toast.info(isSyncing ? 'Sync already in progress.' : 'You are offline.');
-    return { success: false, reason: isSyncing ? 'already_syncing' : 'offline' };
+  if (isSyncing) {
+    if (isManual) toast.info('Sync already in progress.');
+    return { success: false, reason: 'already_syncing' };
+  }
+  if (!navigator.onLine) {
+    if (isManual) toast.info('You are offline. Sync will run when you are back online.');
+    return { success: false, reason: 'offline' };
   }
   isSyncing = true;
   if (isManual) toast.loading('Syncing match data...');
@@ -28,25 +33,21 @@ export async function runSync(isManual = false) {
     }, {} as Record<string, MatchEvent[]>);
     let totalSynced = 0;
     for (const matchId in eventsByMatch) {
-      try {
-        const response = await api<{ syncedIds: string[], conflicts: number }>(`/api/matches/${matchId}/sync`, {
-          method: 'POST',
-          headers: auth.getAuthHeader(),
-          body: JSON.stringify({ events: eventsByMatch[matchId] }),
-        });
-        if (response.syncedIds.length > 0) {
-          await db.markEventsAsSynced(response.syncedIds);
-          totalSynced += response.syncedIds.length;
-        }
-        if (response.conflicts > 0) {
-          toast.warning(`${response.conflicts} conflicts detected. Last-write-wins was applied.`);
-        }
-      } catch (error) {
-        console.error(`Failed to sync events for match ${matchId}:`, error);
-        throw error;
+      const response = await api<{ syncedIds: string[], conflicts: number }>(`/api/matches/${matchId}/sync`, {
+        method: 'POST',
+        headers: auth.getAuthHeader(),
+        body: JSON.stringify({ events: eventsByMatch[matchId] }),
+      });
+      if (response.syncedIds.length > 0) {
+        await db.markEventsAsSynced(response.syncedIds);
+        totalSynced += response.syncedIds.length;
+      }
+      if (response.conflicts > 0) {
+        toast.warning(`${response.conflicts} conflicts detected. Last-write-wins was applied.`);
       }
     }
     if (isManual) toast.success(`Successfully synced ${totalSynced} updates.`);
+    await db.compactOplog();
     retryCount = 0;
     return { success: true, synced: totalSynced };
   } catch (error) {
@@ -65,7 +66,7 @@ export async function runSync(isManual = false) {
   }
 }
 export async function pollMatch(matchId: string, lastSyncTs: number) {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine) return lastSyncTs;
   try {
     const { events, serverTs } = await api<{ events: MatchEvent[], serverTs: number }>(`/api/matches/${matchId}/pull`, {
       method: 'POST',
@@ -81,6 +82,24 @@ export async function pollMatch(matchId: string, lastSyncTs: number) {
     console.error('Polling failed:', error);
     return lastSyncTs;
   }
+}
+export function useLiveSync(matchId: string) {
+  const [status, setStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
+  useEffect(() => {
+    if (matchId) {
+      const interval = setInterval(async () => {
+        setStatus('syncing');
+        try {
+          await pollMatch(matchId, Date.now() - 30000); // poll for last 30s of events
+          setStatus('idle');
+        } catch {
+          setStatus('error');
+        }
+      }, 10000); // Poll every 10 seconds
+      return () => clearInterval(interval);
+    }
+  }, [matchId]);
+  return status;
 }
 setInterval(runSync, 60 * 1000);
 window.addEventListener('online', () => {

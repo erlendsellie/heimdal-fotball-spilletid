@@ -26,6 +26,7 @@ export function MatchPage() {
   useEffect(() => {
     async function loadData() {
       if (!matchId) return;
+      // In a real app, this would be a fetch from local-db or API
       const matchData = MOCK_MATCHES.find(m => m.id === matchId) || null;
       setMatch(matchData);
       const playersData = MOCK_PLAYERS;
@@ -71,7 +72,7 @@ export function MatchPage() {
     const bench = players.filter(p => onBench.has(p.id));
     return [field, bench];
   }, [players, current]);
-  const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even', t), [onFieldPlayers, onBenchPlayers, minutesPlayed, t]);
+  const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
   const isRunning = useMemo(() => current.matches('running'), [current]);
   useEffect(() => {
     if (!isRunning) return;
@@ -80,7 +81,17 @@ export function MatchPage() {
     }, 5000);
     return () => clearInterval(interval);
   }, [isRunning]);
-  if (!match) return <div className="center h-screen"><p>{t('match.loading')}</p></div>;
+  if (!match) {
+    return (
+      <div className="center h-screen">
+        <Card>
+          <CardContent className="text-center p-8">
+            <p aria-live="polite">{t('match.loading')}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   return (
     <>
       <ThemeToggle className="fixed top-4 right-4 z-50" />
@@ -110,7 +121,7 @@ export function MatchPage() {
                 onSwapRequest={handleSwapRequest}
                 onLineupChange={handleLineupChange}
               />
-              <Card>
+              <Card className="bg-gradient-to-r from-heimdal-orange/5 to-heimdal-navy/5">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><Lightbulb /> {t('match.suggestionsTitle')}</CardTitle>
                 </CardHeader>
@@ -118,9 +129,9 @@ export function MatchPage() {
                   {suggestions.length > 0 ? (
                     <ul className="space-y-2">
                       {suggestions.map((s, i) => (
-                        <li key={i} className="text-sm p-2 border rounded-md flex justify-between items-center">
+                        <li key={i} className="text-sm p-2 border rounded-md flex justify-between items-center bg-background/50">
                           <span><strong>Ut:</strong> {s.out.name}, <strong>Inn:</strong> {s.in.name} ({s.reason})</span>
-                          <Button size="sm" className="bg-heimdal-orange hover:bg-heimdal-navy text-white" onClick={() => handleLineupChange(s.out.id, s.in.id)}>{t('match.substitute')}</Button>
+                          <Button size="sm" className="bg-heimdal-orange hover:bg-heimdal-navy text-white focus:ring-heimdal-orange" onClick={() => handleLineupChange(s.out.id, s.in.id)}>{t('match.substitute')}</Button>
                         </li>
                       ))}
                     </ul>

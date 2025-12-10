@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PlusCircle, ArrowRight, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,13 +11,30 @@ import { Toaster, toast } from '@/components/ui/sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Navigation } from '@/components/Navigation';
 import { useTranslation } from '@/lib/translations';
-const mockTournaments = [
-  { id: 't1', name: 'Vinterserien 2024', matchCount: 8, status: 'Pågående' },
-  { id: 't2', name: 'Trønder-Cup', matchCount: 5, status: 'Kommende' },
-  { id: 't3', name: 'Sommerturnering', matchCount: 12, status: 'Fullført' },
-];
+import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/api-client';
+import type { Tournament } from '@shared/types';
 export function TournamentPage() {
   const { t } = useTranslation();
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    async function fetchTournaments() {
+      try {
+        // Mocking API call for now
+        const mockTournamentsData = [
+          { id: 't1', name: 'Vinterserien 2024', matchIds: ['m1', 'm2'], carryover_rules: { enabled: false } },
+          { id: 't2', name: 'Trønder-Cup', matchIds: ['m3'], carryover_rules: { enabled: false } },
+        ];
+        setTournaments(mockTournamentsData);
+      } catch (error) {
+        toast.error("Failed to load tournaments.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchTournaments();
+  }, []);
   return (
     <>
       <ThemeToggle className="fixed top-4 right-4 z-50" />
@@ -35,7 +53,7 @@ export function TournamentPage() {
               <div className="flex gap-2 mt-4 sm:mt-0">
                 <Sheet>
                   <SheetTrigger asChild>
-                    <Button size="lg" className="bg-heimdal-navy hover:bg-heimdal-orange text-white shadow-lg">
+                    <Button size="lg" className="bg-heimdal-navy hover:bg-heimdal-orange text-white shadow-lg" aria-label={t('tournament.new')}>
                       <PlusCircle className="mr-2 h-5 w-5" />
                       {t('tournament.new')}
                     </Button>
@@ -59,33 +77,37 @@ export function TournamentPage() {
                 </Sheet>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {mockTournaments.map((tournament, i) => (
-                <motion.div
-                  key={tournament.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: i * 0.1 }}
-                >
-                  <Card className="h-full flex flex-col transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
-                    <CardHeader>
-                      <CardTitle className="text-xl">{tournament.name}</CardTitle>
-                      <CardDescription>{tournament.status}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-grow">
-                      <p className="text-sm text-muted-foreground">
-                        {tournament.matchCount} kamper
-                      </p>
-                    </CardContent>
-                    <CardFooter>
-                      <Button variant="outline" className="w-full border-heimdal-orange text-heimdal-orange hover:bg-heimdal-orange hover:text-white">
-                        {t('tournament.viewDetails')} <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-48 w-full" />)}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {tournaments.map((tournament, i) => (
+                  <motion.div
+                    key={tournament.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: i * 0.1 }}
+                  >
+                    <Card className="h-full flex flex-col transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
+                      <CardHeader>
+                        <CardTitle className="text-xl">{tournament.name}</CardTitle>
+                        <CardDescription>{tournament.matchIds.length} kamper</CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex-grow">
+                        {/* Stats would be displayed here */}
+                      </CardContent>
+                      <CardFooter>
+                        <Button variant="outline" className="w-full border-heimdal-orange text-heimdal-orange hover:bg-heimdal-orange hover:text-white">
+                          {t('tournament.viewDetails')} <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

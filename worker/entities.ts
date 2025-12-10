@@ -1,14 +1,13 @@
 import { IndexedEntity, Env } from "./core-utils";
-import type { User, Player, Match, MatchEvent, Tournament } from "@shared/types";
+import type { User, Player, Match, MatchEvent, Tournament, SubstitutionPayload } from "@shared/types";
 import { MOCK_PLAYERS, MOCK_MATCHES } from "@shared/mock-data";
 // USER ENTITY for authentication
 export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";
   static readonly indexName = "users";
   static readonly initialState: User = { id: "", name: "", email: "", passwordHash: "", role: "observatør" };
-  static override keyOf<U extends { id: string }>(state: U): string {
-    const s = state as unknown as User;
-    return s.email ?? s.id;
+  static override keyOf(state: User): string {
+    return state.email ?? state.id;
   }
   static async findByEmail(env: Env, email: string): Promise<UserEntity | null> {
     const user = new UserEntity(env, email);
@@ -34,23 +33,28 @@ export class MatchEntity extends IndexedEntity<Match> {
   async applyEvents(events: MatchEvent[]): Promise<{ acknowledgedIds: string[], conflicts: number }> {
     const acknowledgedIds: string[] = [];
     let conflicts = 0;
-    await this.mutate(s => {
-      const existingEventIds = new Set(s.events.map(e => e.id));
-      const newEvents: MatchEvent[] = [];
-      for (const event of events) {
-        if (!existingEventIds.has(event.id)) {
-          newEvents.push(event);
-          acknowledgedIds.push(event.id);
-        } else {
-          conflicts++;
+    try {
+      await this.mutate(s => {
+        const existingEventIds = new Set(s.events.map(e => e.id));
+        const newEvents: MatchEvent[] = [];
+        for (const event of events) {
+          if (!existingEventIds.has(event.id)) {
+            newEvents.push(event);
+            acknowledgedIds.push(event.id);
+          } else {
+            conflicts++;
+          }
         }
-      }
-      if (newEvents.length > 0) {
-        const allEvents = [...s.events, ...newEvents].sort((a, b) => a.ts - b.ts);
-        return { ...s, events: allEvents };
-      }
-      return s;
-    });
+        if (newEvents.length > 0) {
+          const allEvents = [...s.events, ...newEvents].sort((a, b) => a.ts - b.ts);
+          return { ...s, events: allEvents };
+        }
+        return s;
+      });
+    } catch (e) {
+      console.error('Event apply failed:', e);
+      throw new Error('Concurrent update failed');
+    }
     return { acknowledgedIds, conflicts };
   }
 }
@@ -62,20 +66,47 @@ export class TournamentEntity extends IndexedEntity<Tournament> {
   async aggregateStats(env: Env): Promise<Record<string, { totalMinutes: number }>> {
     const state = await this.getState();
     const stats: Record<string, { totalMinutes: number }> = {};
-    // This is a placeholder for a real stats calculation engine.
-    // A real implementation would process the event log of each match to calculate minutes played.
     for (const matchId of state.matchIds) {
       const matchEntity = new MatchEntity(env, matchId);
-      if (await matchEntity.exists()) {
-        const match = await matchEntity.getState();
-        // TODO: Implement event processing logic here
+      if (!(await matchEntity.exists())) continue;
+      const match = await matchEntity.getState();
+      const onField = new Set<string>();
+      let lastTimestamp = 0;
+      for (const event of match.events) {
+        const elapsedSinceLastEvent = event.ts - lastTimestamp;
+        onField.forEach(playerId => {
+          if (!stats[playerId]) stats[playerId] = { totalMinutes: 0 };
+          stats[playerId].totalMinutes += elapsedSinceLastEvent / (1000 * 60);
+        });
+        switch (event.type) {
+          case 'START':
+            // Assuming payload contains initial lineup
+            if (event.payload?.initialLineup) {
+              (event.payload.initialLineup as string[]).forEach(pId => onField.add(pId));
+            }
+            break;
+          case 'SUBSTITUTION':
+            const payload = event.payload as SubstitutionPayload;
+            if (payload) {
+              onField.delete(payload.playerOutId);
+              onField.add(payload.playerInId);
+            }
+            break;
+          case 'PAUSE':
+          case 'STOP':
+            onField.clear();
+            break;
+          case 'RESUME':
+            // Need to know who was on field before pause
+            break;
+        }
+        lastTimestamp = event.ts;
       }
     }
-    // Placeholder logic for demo
-    const players = await PlayerEntity.list(env);
-    players.items.forEach(p => {
-      stats[p.id] = { totalMinutes: Math.floor(Math.random() * 100 * state.matchIds.length) };
-    });
+    // Round minutes for cleaner output
+    for (const playerId in stats) {
+        stats[playerId].totalMinutes = Math.round(stats[playerId].totalMinutes);
+    }
     return stats;
   }
 }
