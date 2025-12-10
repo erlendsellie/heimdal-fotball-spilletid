@@ -10,25 +10,33 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import '@/index.css'
 import { HomePage } from '@/pages/HomePage'
 import { MatchPage } from '@/pages/MatchPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { TournamentPage } from '@/pages/TournamentPage';
 import { register } from './registerServiceWorker';
 const queryClient = new QueryClient();
 const router = createBrowserRouter([
   {
+    path: "/login",
+    element: <LoginPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
     path: "/",
-    element: <HomePage />,
+    element: <ProtectedRoute><HomePage /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: "/match/:matchId",
-    element: <MatchPage />,
+    element: <ProtectedRoute><MatchPage /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
   {
-    path: "/tournament", // Placeholder, routes to dashboard
-    element: <HomePage />,
+    path: "/tournament",
+    element: <ProtectedRoute><TournamentPage /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   }
 ]);

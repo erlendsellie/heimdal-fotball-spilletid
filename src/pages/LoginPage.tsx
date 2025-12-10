@@ -9,9 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Toaster, toast } from '@/components/ui/sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { auth } from '@/lib/auth';
-import { useTranslation } from '@/lib/translations';
 export function LoginPage() {
-  const { t, language } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('trener@heimdal.no');
@@ -23,10 +21,11 @@ export function LoginPage() {
     setIsLoading(true);
     try {
       await auth.login(email, password);
-      toast.success(t('login.success'));
+      toast.success('Successfully logged in!');
+      // Redirect to the page the user was trying to access, or to the dashboard
       navigate(from, { replace: true });
     } catch (error) {
-      toast.error(t('login.error'));
+      toast.error(error instanceof Error ? error.message : 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -35,7 +34,7 @@ export function LoginPage() {
     <>
       <ThemeToggle className="fixed top-4 right-4" />
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-8 md:py-10 lg:py-12">
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -44,21 +43,16 @@ export function LoginPage() {
             >
               <Card className="w-full max-w-md mx-auto shadow-2xl">
                 <CardHeader className="text-center">
-                  <svg width="64" height="64" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 mb-4 rounded-full" aria-label="Heimdal Fotball Logo">
-                    <rect width="100" height="100" fill="#006400"/>
-                    <text x="50" y="65" textAnchor="middle" fill="#DC143C" fontSize="40" fontWeight="bold" fontFamily="Inter, sans-serif">H-F</text>
-                    <circle cx="50" cy="20" r="8" fill="#FFD700"/>
-                  </svg>
-                  <div className="inline-block mx-auto bg-gradient-to-r from-heimdal-green to-heimdal-red p-3 rounded-full">
+                  <div className="inline-block mx-auto bg-gradient-to-r from-[#E55A1B] to-[#0B3D91] p-3 rounded-full">
                     <ShieldCheck className="h-8 w-8 text-white" />
                   </div>
-                  <CardTitle className="text-3xl font-bold mt-4">{t('login.title')}</CardTitle>
-                  <CardDescription>{t('login.description')}</CardDescription>
+                  <CardTitle className="text-3xl font-bold mt-4">Coach Login</CardTitle>
+                  <CardDescription>Access your team's match dashboard.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleLogin} className="space-y-6" lang={language}>
+                  <form onSubmit={handleLogin} className="space-y-6">
                     <div className="space-y-2">
-                      <Label htmlFor="email">{t('login.email')}</Label>
+                      <Label htmlFor="email">Email</Label>
                       <Input
                         id="email"
                         type="email"
@@ -67,11 +61,10 @@ export function LoginPage() {
                         onChange={(e) => setEmail(e.target.value)}
                         required
                         disabled={isLoading}
-                        className="h-12"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="password">{t('login.password')}</Label>
+                      <Label htmlFor="password">Password</Label>
                       <Input
                         id="password"
                         type="password"
@@ -79,11 +72,10 @@ export function LoginPage() {
                         onChange={(e) => setPassword(e.target.value)}
                         required
                         disabled={isLoading}
-                        className="h-12"
                       />
                     </div>
-                    <Button type="submit" className="w-full bg-heimdal-green hover:bg-heimdal-red text-white" disabled={isLoading}>
-                      {isLoading ? t('login.loading') : t('login.submit')}
+                    <Button type="submit" className="w-full bg-[#0B3D91] hover:bg-[#0B3D91]/90 text-white" disabled={isLoading}>
+                      {isLoading ? 'Logging in...' : 'Log In'}
                     </Button>
                   </form>
                 </CardContent>
