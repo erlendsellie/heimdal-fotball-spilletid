@@ -1,12 +1,12 @@
-import { IndexedEntity } from "./core-utils";
+import { IndexedEntity, Env } from "./core-utils";
 import type { User, Player, Match, MatchEvent, Tournament } from "@shared/types";
 import { MOCK_PLAYERS, MOCK_MATCHES } from "@shared/mock-data";
 // USER ENTITY for authentication
 export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";
   static readonly indexName = "users";
-  static readonly initialState: User = { id: "", email: "", passwordHash: "", role: "observer" };
-  static keyOf(state: User): string { return state.email; } // Use email as the key for uniqueness
+  static readonly initialState: User = { id: "", name: "", email: "", passwordHash: "", role: "observer" };
+  static override keyOf(state: User): string { return state.email; }
   static async findByEmail(env: Env, email: string): Promise<UserEntity | null> {
     const user = new UserEntity(env, email);
     if (await user.exists()) {
@@ -39,8 +39,6 @@ export class MatchEntity extends IndexedEntity<Match> {
           newEvents.push(event);
           acknowledgedIds.push(event.id);
         } else {
-          // Simple conflict detection: if event ID exists, it's a duplicate/conflict.
-          // A more robust system would check timestamps for LWW.
           conflicts++;
         }
       }
@@ -61,15 +59,16 @@ export class TournamentEntity extends IndexedEntity<Tournament> {
   async aggregateStats(env: Env): Promise<Record<string, { totalMinutes: number }>> {
     const state = await this.getState();
     const stats: Record<string, { totalMinutes: number }> = {};
+    // This is a placeholder for a real stats calculation engine.
+    // A real implementation would process the event log of each match to calculate minutes played.
     for (const matchId of state.matchIds) {
       const matchEntity = new MatchEntity(env, matchId);
       if (await matchEntity.exists()) {
         const match = await matchEntity.getState();
-        // This is a placeholder for a real stats calculation engine.
-        // A real implementation would process the event log to calculate minutes played.
+        // TODO: Implement event processing logic here
       }
     }
-    // Placeholder logic
+    // Placeholder logic for demo
     const players = await PlayerEntity.list(env);
     players.items.forEach(p => {
       stats[p.id] = { totalMinutes: Math.floor(Math.random() * 100 * state.matchIds.length) };

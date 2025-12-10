@@ -7,6 +7,9 @@ export interface ApiResponse<T = unknown> {
 export interface User {
   id: string;
   name: string;
+  email: string;
+  passwordHash: string;
+  role: 'trener' | 'assistent' | 'observatør';
 }
 export interface Chat {
   id: string;
@@ -33,7 +36,7 @@ export interface Match {
   teamId: string;
   opponent: string;
   duration_minutes: number;
-  status: 'Klar' | 'Pågående' | 'Fullf��rt';
+  status: 'Klar' | 'Pågående' | 'Fullført';
   events: MatchEvent[];
   // start_time?: number;
 }
@@ -50,4 +53,13 @@ export interface SubstitutionPayload {
   playerOutId: string;
   playerInId: string;
   minute: number;
+}
+export interface Tournament {
+  id: string;
+  name: string;
+  matchIds: string[];
+  carryover_rules: {
+    enabled: boolean;
+    compensationMinutes?: number;
+  };
 }

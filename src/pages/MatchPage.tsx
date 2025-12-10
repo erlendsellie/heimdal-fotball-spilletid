@@ -1,72 +1,87 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Users, List, BarChart, Download, UserPlus, Shuffle } from 'lucide-react';
+import { useMachine } from '@xstate/react';
+import { ArrowLeft, Users, List, BarChart, Download, UserPlus, Shuffle, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Toaster, toast } from '@/components/ui/sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { MatchClock } from '@/components/MatchClock';
-import { PlayerCard } from '@/components/PlayerCard';
+import { DragDropLineup } from '@/components/DragDropLineup';
 import db from '@/lib/local-db';
 import { MOCK_PLAYERS, MOCK_MATCHES } from '@shared/mock-data';
 import type { Player, Match } from '@shared/types';
+import { matchMachine } from '@/lib/matchMachine';
+import { suggestSwaps } from '@/lib/substitutionSuggestions';
+import { runSync } from '@/lib/sync';
 export function MatchPage() {
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
   const [match, setMatch] = useState<Match | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [onField, setOnField] = useState<Set<string>>(new Set());
-  const [onBench, setOnBench] = useState<Set<string>>(new Set());
   const [minutesPlayed, setMinutesPlayed] = useState<Record<string, number>>({});
+  const [current, send] = useMachine(matchMachine);
   useEffect(() => {
     async function loadData() {
       if (!matchId) return;
-      // For demo, we use mock data. A real app would fetch from db.
       const matchData = MOCK_MATCHES.find(m => m.id === matchId) || null;
       setMatch(matchData);
       const playersData = MOCK_PLAYERS;
       setPlayers(playersData);
-      // Initial setup: 7 on field, rest on bench
       const initialOnField = new Set(playersData.slice(0, 7).map(p => p.id));
       const initialOnBench = new Set(playersData.slice(7).map(p => p.id));
-      setOnField(initialOnField);
-      setOnBench(initialOnBench);
+      send({
+        type: 'RESET',
+        ...{
+          context: {
+            ...matchMachine.context,
+            onField: initialOnField,
+            onBench: initialOnBench,
+            players: playersData,
+            durationMs: (matchData?.duration_minutes || 45) * 60 * 1000,
+          }
+        }
+      });
       const initialMinutes = playersData.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {});
       setMinutesPlayed(initialMinutes);
     }
     loadData();
-  }, [matchId]);
-  const handleTick = (elapsedMs: number) => {
-    const elapsedSeconds = elapsedMs / 1000;
+  }, [matchId, send]);
+  const handleTick = useCallback((elapsedMs: number) => {
     setMinutesPlayed(prev => {
       const newMinutes = { ...prev };
-      onField.forEach(playerId => {
-        // This is a simplified calculation. A robust solution would use timestamps.
+      current.context.onField.forEach(playerId => {
         newMinutes[playerId] = (newMinutes[playerId] || 0) + (1 / 60);
       });
       return newMinutes;
     });
+  }, [current.context.onField]);
+  const handleSwapRequest = (playerId: string) => {
+    toast.info(`Substitute request for player ${playerId}. Use drag & drop or suggestions.`);
   };
-  const handleSwap = (playerId: string) => {
-    toast.info(`Substitute request for player ${playerId}. UI not fully implemented.`);
-    // Full logic would involve a modal to select replacement, updating onField/onBench sets,
-    // and logging the event to the oplog via db.addEvent.
+  const handleLineupChange = (activeId: string, overId: string) => {
+    // This is a simplified swap. A real implementation would be more robust.
+    const playerOutId = activeId;
+    const playerInId = overId;
+    send({ type: 'SUBSTITUTE', playerOutId, playerInId });
+    toast.success('Substitution made!');
   };
   const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
-    const field = players.filter(p => onField.has(p.id));
-    const bench = players.filter(p => onBench.has(p.id));
+    const field = players.filter(p => current.context.onField.has(p.id));
+    const bench = players.filter(p => current.context.onBench.has(p.id));
     return [field, bench];
-  }, [players, onField, onBench]);
-  if (!match) {
-    return (
-      <div className="center h-screen">
-        <p>Loading match...</p>
-      </div>
-    );
-  }
+  }, [players, current.context.onField, current.context.onBench]);
+  const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
+  useEffect(() => {
+    const isRunning = current.matches('running');
+    if (!isRunning) return;
+    const interval = setInterval(() => {
+      runSync();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [current]);
+  if (!match) return <div className="center h-screen"><p>Loading match...</p></div>;
   return (
     <>
       <ThemeToggle className="fixed top-4 right-4" />
@@ -78,51 +93,39 @@ export function MatchPage() {
             </Button>
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-foreground">Live Match</h1>
-              <p className="text-muted-foreground">Heimdal Fotball vs. Opponent</p>
+              <p className="text-muted-foreground">{match.teamId} vs. {match.opponent}</p>
             </div>
           </div>
           <div className="space-y-8">
-            <MatchClock durationMinutes={match.duration_minutes} onTick={handleTick} />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Users /> On The Field ({onFieldPlayers.length})</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <AnimatePresence>
-                    {onFieldPlayers.map(player => (
-                      <PlayerCard 
-                        key={player.id} 
-                        player={player} 
-                        minutesPlayed={minutesPlayed[player.id] || 0}
-                        isOnField={true}
-                        onSwapRequest={handleSwap}
-                      />
+            <MatchClock durationMinutes={match.duration_minutes} onTick={handleTick} onStatusChange={(status) => {
+              if (status === 'running') send({ type: 'START' });
+              if (status === 'paused') send({ type: 'PAUSE' });
+              if (status === 'stopped') send({ type: 'STOP' });
+            }} />
+            <DragDropLineup
+              onFieldPlayers={onFieldPlayers}
+              onBenchPlayers={onBenchPlayers}
+              minutesPlayed={minutesPlayed}
+              onSwapRequest={handleSwapRequest}
+              onLineupChange={handleLineupChange}
+            />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Lightbulb /> Substitution Suggestions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {suggestions.length > 0 ? (
+                  <ul className="space-y-2">
+                    {suggestions.map((s, i) => (
+                      <li key={i} className="text-sm p-2 border rounded-md flex justify-between items-center">
+                        <span><strong>Out:</strong> {s.out.name}, <strong>In:</strong> {s.in.name} ({s.reason})</span>
+                        <Button size="sm" onClick={() => handleLineupChange(s.out.id, s.in.id)}>Execute</Button>
+                      </li>
                     ))}
-                  </AnimatePresence>
-                </CardContent>
-              </Card>
-              <div className="space-y-8">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Users /> On The Bench ({onBenchPlayers.length})</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
-                    <AnimatePresence>
-                      {onBenchPlayers.map(player => (
-                        <PlayerCard 
-                          key={player.id} 
-                          player={player} 
-                          minutesPlayed={minutesPlayed[player.id] || 0}
-                          isOnField={false}
-                          onSwapRequest={handleSwap}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+                  </ul>
+                ) : <p className="text-sm text-muted-foreground">No suggestions available.</p>}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

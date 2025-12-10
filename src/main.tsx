@@ -16,6 +16,8 @@ import { HomePage } from '@/pages/HomePage'
 import { MatchPage } from '@/pages/MatchPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { TournamentPage } from '@/pages/TournamentPage';
+import { TeamPage } from '@/pages/TeamPage';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { register } from './registerServiceWorker';
 const queryClient = new QueryClient();
 const router = createBrowserRouter([
@@ -37,6 +39,16 @@ const router = createBrowserRouter([
   {
     path: "/tournament",
     element: <ProtectedRoute><TournamentPage /></ProtectedRoute>,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/team",
+    element: <ProtectedRoute><TeamPage /></ProtectedRoute>,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/settings",
+    element: <ProtectedRoute><SettingsPage /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   }
 ]);

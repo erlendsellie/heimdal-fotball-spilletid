@@ -4,24 +4,10 @@ import type { Player, Match, MatchEvent } from '@shared/types';
 const DB_NAME = 'heimdal-spilletid-db';
 const DB_VERSION = 1;
 interface HeimdalDB extends DBSchema {
-  matches: {
-    key: string;
-    value: Match;
-  };
-  players: {
-    key: string;
-    value: Player;
-    indexes: { teamId: string };
-  };
-  oplog: {
-    key: string;
-    value: MatchEvent;
-    indexes: { matchId: string; synced: 'true' | 'false' };
-  };
-  meta: {
-    key: string;
-    value: any;
-  };
+  matches: { key: string; value: Match; };
+  players: { key: string; value: Player; indexes: { teamId: string }; };
+  oplog: { key: string; value: MatchEvent; indexes: { matchId: string; synced: number }; };
+  meta: { key: string; value: any; };
 }
 let dbPromise: Promise<IDBPDatabase<HeimdalDB>> | null = null;
 const getDb = (): Promise<IDBPDatabase<HeimdalDB>> => {
@@ -38,7 +24,7 @@ const getDb = (): Promise<IDBPDatabase<HeimdalDB>> => {
         if (!db.objectStoreNames.contains('oplog')) {
           const oplogStore = db.createObjectStore('oplog', { keyPath: 'id' });
           oplogStore.createIndex('matchId', 'matchId');
-          oplogStore.createIndex('synced', 'synced');
+          oplogStore.createIndex('synced', 'synced'); // 0 for false, 1 for true
         }
         if (!db.objectStoreNames.contains('meta')) {
           db.createObjectStore('meta', { keyPath: 'key' });
@@ -74,7 +60,7 @@ export const db = {
     return event;
   },
   async getUnsyncedEvents(): Promise<MatchEvent[]> {
-    return (await getDb()).getAllFromIndex('oplog', 'synced', 'false');
+    return (await getDb()).getAllFromIndex('oplog', 'synced', 0);
   },
   async markEventsAsSynced(eventIds: string[]): Promise<void> {
     const db = await getDb();
@@ -84,6 +70,17 @@ export const db = {
       .filter((event): event is MatchEvent => !!event)
       .map(event => tx.store.put({ ...event, synced: true }));
     await Promise.all([...updates, tx.done]);
+  },
+  async compactOplog(): Promise<void> {
+    const db = await getDb();
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    let cursor = await db.transaction('oplog').store.openCursor();
+    while (cursor) {
+      if (cursor.value.synced && cursor.value.ts < sevenDaysAgo) {
+        cursor.delete();
+      }
+      cursor = await cursor.continue();
+    }
   },
 };
 export default db;
