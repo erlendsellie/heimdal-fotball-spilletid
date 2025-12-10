@@ -1,23 +1,23 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Shield, Trophy, Users, Settings, LogOut } from 'lucide-react';
+import { Home, Trophy, Users, Settings, LogOut, Menu, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: Home },
-  { to: '/tournament', label: 'Tournaments', icon: Trophy },
-  { to: '/team', label: 'Team', icon: Users },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/', label: 'Oversikt', icon: Home },
+  { to: '/tournament', label: 'Turneringer', icon: Trophy },
+  { to: '/team', label: 'Lag', icon: Users },
+  { to: '/settings', label: 'Innstillinger', icon: Settings },
 ];
 const NavItem = ({ to, label, icon: Icon }: typeof navItems[0]) => (
   <NavLink
     to={to}
+    end // Use `end` for the dashboard link to avoid it being active for all child routes
     className={({ isActive }) =>
       cn(
         "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-        isActive && "bg-muted text-primary"
+        isActive && "bg-heimdal-red text-white hover:text-white hover:bg-heimdal-red/90"
       )
     }
   >
@@ -31,9 +31,9 @@ export function Navigation() {
       {/* Desktop Sidebar */}
       <div className="hidden border-r bg-muted/40 md:block fixed top-0 left-0 h-full w-64">
         <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 bg-heimdal-green text-white">
             <NavLink to="/" className="flex items-center gap-2 font-semibold">
-              <Shield className="h-6 w-6 text-heimdal-orange" />
+              <img src="https://via.placeholder.com/150x150/006400/ffffff?text=HF" alt="Heimdal Fotball Logo" className="h-8 w-8 rounded-full border-2 border-heimdal-yellow" />
               <span className="">Heimdal Spilletid</span>
             </NavLink>
           </div>
@@ -45,7 +45,7 @@ export function Navigation() {
           <div className="mt-auto p-4">
             <Button size="sm" variant="ghost" className="w-full justify-start" onClick={() => auth.logout()}>
               <LogOut className="mr-2 h-4 w-4" />
-              Logout
+              Logg ut
             </Button>
           </div>
         </div>
@@ -62,7 +62,7 @@ export function Navigation() {
           <SheetContent side="left" className="flex flex-col">
             <nav className="grid gap-2 text-lg font-medium">
               <NavLink to="/" className="flex items-center gap-2 text-lg font-semibold mb-4">
-                <Shield className="h-6 w-6 text-heimdal-orange" />
+                <img src="https://via.placeholder.com/150x150/006400/ffffff?text=HF" alt="Heimdal Fotball Logo" className="h-8 w-8 rounded-full" />
                 <span>Heimdal Spilletid</span>
               </NavLink>
               {navItems.map(item => <NavItem key={item.to} {...item} />)}
@@ -70,7 +70,7 @@ export function Navigation() {
             <div className="mt-auto">
               <Button size="sm" variant="ghost" className="w-full justify-start" onClick={() => auth.logout()}>
                 <LogOut className="mr-2 h-4 w-4" />
-                Logout
+                Logg ut
               </Button>
             </div>
           </SheetContent>

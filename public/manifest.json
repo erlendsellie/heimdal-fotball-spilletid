@@ -1,20 +1,20 @@
 {
-  "short_name": "Heimdal",
+  "short_name": "Heimdal Spilletid",
   "name": "Heimdal Fotball Spilletid",
   "icons": [
     {
-      "src": "https://www.flaticon.com/svg/static/icons/svg/3048/3048309.svg",
-      "type": "image/svg+xml",
-      "sizes": "512x512"
+      "src": "https://via.placeholder.com/150x150/006400/ffffff?text=HF",
+      "sizes": "150x150",
+      "type": "image/png"
     },
     {
-      "src": "https://www.flaticon.com/png/static/icons/png/512/3048/3048309.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "https://via.placeholder.com/512x512/006400/ffffff?text=HF",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#E55A1B",
+  "theme_color": "#006400",
   "background_color": "#FFFFFF"
 }
