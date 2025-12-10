@@ -85,7 +85,8 @@ function runSetupCommands() {
     "bun add -D jsdom@^25.0.1",
     "bun install idb",
     "bun install @xstate/react",
-    "bun add @xstate/react"
+    "bun add @xstate/react",
+    "bun install --silent"
 ];
     
     if (commands.length === 0) {
