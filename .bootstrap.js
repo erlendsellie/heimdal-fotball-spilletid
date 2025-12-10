@@ -77,17 +77,7 @@ function updateWranglerJsonc() {
 }
 
 function runSetupCommands() {
-    const commands = [
-    "bun add idb@^8.0.3",
-    "bun add xstate@^5.1.2",
-    "bun add workbox-window@^7.1.0",
-    "bun add papaparse@^5.4.1",
-    "bun add -D jsdom@^25.0.1",
-    "bun install idb",
-    "bun install @xstate/react",
-    "bun add @xstate/react",
-    "bun install --silent"
-];
+    const commands = [];
     
     if (commands.length === 0) {
         console.log('⊘ No setup commands to run');
