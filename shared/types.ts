@@ -27,7 +27,7 @@ export interface Player {
   id: string;
   teamId: string;
   name: string;
-  number: number;
+  number?: number;
   position: 'Goalkeeper' | 'Defense' | 'Midfield' | 'Forward';
   age?: number;
 }
@@ -36,7 +36,7 @@ export interface Match {
   teamId: string;
   opponent: string;
   duration_minutes: number;
-  status: 'Klar' | 'Pågående' | 'Fullført';
+  status: 'Klar' | 'P��gående' | 'Fullført';
   events: MatchEvent[];
   teamSize?: number;
 }

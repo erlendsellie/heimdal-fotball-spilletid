@@ -1,77 +1,99 @@
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, useSortable, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable';
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, DragEndEvent, DragOverlay } from '@dnd-kit/core';
+import { SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { PlayerCard } from './PlayerCard';
 import type { Player } from '@shared/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users } from 'lucide-react';
 import { useTranslation } from '@/lib/translations';
-import { cn } from '@/lib/utils';
-function SortablePlayerCard({ player, minutesPlayed, onSwapRequest }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: player.id });
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+function SortablePlayerItem({ id, player, minutesPlayed, isOnField, onSwapRequest }: { id: string; player: Player; minutesPlayed: number; isOnField: boolean; onSwapRequest: (id: string) => void; }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 10 : 1,
+    zIndex: isDragging ? 100 : 'auto',
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <PlayerCard player={player} minutesPlayed={minutesPlayed} onSwapRequest={onSwapRequest} isOnField={true} />
+      <PlayerCard player={player} minutesPlayed={minutesPlayed} onSwapRequest={onSwapRequest} isOnField={isOnField} />
     </div>
   );
 }
-export function DragDropLineup({ onFieldPlayers, onBenchPlayers, minutesPlayed, onLineupChange, teamSize }: any) {
+export function DragDropLineup({ onFieldPlayers, onBenchPlayers, minutesPlayed, onLineupChange, teamSize, matchId }: { onFieldPlayers: Player[]; onBenchPlayers: Player[]; minutesPlayed: Record<string, number>; onLineupChange: (playerOutId: string, playerInId: string) => void; teamSize: number; matchId: string; }) {
   const { t } = useTranslation();
-  const sensors = useSensors(useSensor(PointerSensor));
-  const onFieldIds = onFieldPlayers.map((p: Player) => p.id);
-  const onBenchIds = onBenchPlayers.map((p: Player) => p.id);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  );
+  const onFieldIds = onFieldPlayers.map(p => p.id);
+  const onBenchIds = onBenchPlayers.map(p => p.id);
+  const allPlayersMap = new Map([...onFieldPlayers, ...onBenchPlayers].map(p => [p.id, p]));
+  function handleDragStart(event: any) {
+    setActiveId(event.active.id);
+  }
   function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const activeIsOnField = onFieldIds.includes(active.id);
-    const overIsOnField = onFieldIds.includes(over.id);
-    const activeIsOnBench = onBenchIds.includes(active.id);
-    const overIsOnBench = onBenchIds.includes(over.id);
-    if (activeIsOnField && overIsOnBench) {
-      // Field to Bench swap
-      onLineupChange(active.id, over.id);
-    } else if (activeIsOnBench && overIsOnField) {
-      // Bench to Field swap
-      onLineupChange(over.id, active.id);
-    } else if (activeIsOnBench && over.id === 'bench-droppable' && onFieldPlayers.length < teamSize) {
-      // Bench to empty field spot (not a direct swap)
-      // This case needs a different handler, for now we focus on swaps.
+    const activeContainer = onFieldIds.includes(active.id as string) ? 'field' : 'bench';
+    const overContainer = onFieldIds.includes(over.id as string) ? 'field' : 'bench';
+    if (activeContainer !== overContainer) {
+      if (activeContainer === 'bench' && overContainer === 'field') {
+        // Bench player dragged over a field player -> swap
+        onLineupChange(over.id as string, active.id as string);
+      } else if (activeContainer === 'field' && overContainer === 'bench') {
+        // Field player dragged over a bench player -> swap
+        onLineupChange(active.id as string, over.id as string);
+      }
     }
   }
+  const activePlayer = activeId ? allPlayersMap.get(activeId) : null;
+  const activeIsOnField = activeId ? onFieldIds.includes(activeId) : false;
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 focus-within:ring-2 focus-within:ring-heimdal-orange/50 transition-shadow duration-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Users /> {t('match.onField')} ({onFieldPlayers.length}/{teamSize})</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 min-h-[120px]">
             <SortableContext items={onFieldIds} strategy={rectSortingStrategy}>
-              {onFieldPlayers.map((player: Player) => (
-                <PlayerCard key={player.id} player={player} minutesPlayed={minutesPlayed[player.id] || 0} isOnField={true} onSwapRequest={() => {}} />
+              {onFieldPlayers.map((player) => (
+                <SortablePlayerItem key={player.id} id={player.id} player={player} minutesPlayed={minutesPlayed[player.id] || 0} isOnField={true} onSwapRequest={() => {}} />
               ))}
             </SortableContext>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="focus-within:ring-2 focus-within:ring-heimdal-orange/50 transition-shadow duration-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Users /> {t('match.onBench')} ({onBenchPlayers.length})</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 min-h-[120px]">
             <SortableContext items={onBenchIds} strategy={rectSortingStrategy}>
-              {onBenchPlayers.map((player: Player) => (
-                <PlayerCard key={player.id} player={player} minutesPlayed={minutesPlayed[player.id] || 0} isOnField={false} onSwapRequest={() => {}} />
+              {onBenchPlayers.map((player) => (
+                <SortablePlayerItem key={player.id} id={player.id} player={player} minutesPlayed={minutesPlayed[player.id] || 0} isOnField={false} onSwapRequest={() => {}} />
               ))}
             </SortableContext>
           </CardContent>
         </Card>
       </div>
+      {createPortal(
+        <DragOverlay>
+          {activePlayer ? (
+            <PlayerCard player={activePlayer} minutesPlayed={minutesPlayed[activePlayer.id] || 0} onSwapRequest={() => {}} isOnField={activeIsOnField} />
+          ) : null}
+        </DragOverlay>,
+        document.body
+      )}
     </DndContext>
   );
 }

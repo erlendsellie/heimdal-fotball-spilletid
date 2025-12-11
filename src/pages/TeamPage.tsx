@@ -21,7 +21,7 @@ import { api } from '@/lib/api-client';
 const playerSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Name is required"),
-  number: z.number().min(1, "Number must be at least 1").max(99, "Number must be 99 or less"),
+  number: z.number().min(1, "Number must be at least 1").max(99, "Number must be 99 or less").optional(),
   position: z.enum(['Goalkeeper', 'Defense', 'Midfield', 'Forward']),
   age: z.number().optional(),
   teamId: z.string(),
@@ -56,7 +56,7 @@ export function TeamPage() {
         form.reset({
           id: editingPlayer.id,
           name: editingPlayer.name,
-          number: editingPlayer.number,
+          number: editingPlayer.number ?? undefined,
           position: editingPlayer.position,
           age: editingPlayer.age ?? undefined,
           teamId: editingPlayer.teamId ?? 'heimdal-g12',
@@ -68,12 +68,8 @@ export function TeamPage() {
   }, [isSheetOpen, editingPlayer, form]);
   const onSubmit = async (data: PlayerFormData) => {
     try {
-      if (!data.number) {
-        toast.error(t('team.numberRequired'));
-        return;
-      }
       const validatedData = playerSchema.parse({ ...data, teamId: 'heimdal-g12' });
-      if (players.some(p => p.number === validatedData.number && p.id !== validatedData.id)) {
+      if (validatedData.number && players.some(p => p.number === validatedData.number && p.id !== validatedData.id)) {
         toast.error(t('team.uniqueNumber'));
         return;
       }
@@ -169,10 +165,11 @@ export function TeamPage() {
                         name="number"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('team.number')}</FormLabel>
+                            <FormLabel>{t('team.numberOptional')}</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
+                                placeholder="#10 (valgfri)"
                                 {...field}
                                 onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                                 value={field.value ?? ''}
@@ -249,9 +246,11 @@ export function TeamPage() {
                   <Card className="transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full">
                     <CardHeader className="flex flex-row items-center justify-between">
                       <CardTitle>{player.name}</CardTitle>
-                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-heimdal-navy text-white font-bold text-sm">
-                        {player.number}
-                      </div>
+                      {player.number && (
+                        <div className="flex items-center justify-center h-8 w-8 rounded-full bg-heimdal-navy text-white font-bold text-sm">
+                          {player.number}
+                        </div>
+                      )}
                     </CardHeader>
                     <CardContent className="flex-grow">
                       <p className="text-muted-foreground">{t(`positions.${player.position.toLowerCase()}`)}</p>

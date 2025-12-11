@@ -23,7 +23,7 @@ export class UserEntity extends IndexedEntity<User> {
 export class PlayerEntity extends IndexedEntity<Player> {
   static readonly entityName = "player";
   static readonly indexName = "players";
-  static readonly initialState: Player = { id: "", teamId: "", name: "", number: 0, position: "Midfield" };
+  static readonly initialState: Player = { id: "", teamId: "", name: "", position: "Midfield" };
   static seedData = MOCK_PLAYERS;
   async update(partial: Partial<Player>) {
     await this.patch(partial);
