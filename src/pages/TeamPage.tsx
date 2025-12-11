@@ -35,7 +35,7 @@ export function TeamPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const form = useForm<PlayerFormData>({
     resolver: zodResolver(playerSchema),
-    defaultValues: { name: '', number: undefined, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' },
+    defaultValues: { name: '', number: 0, position: 'Midfield', age: 0, teamId: 'heimdal-g12' },
   });
   useEffect(() => {
     const fetchPlayers = async () => {
@@ -53,7 +53,7 @@ export function TeamPage() {
       if (editingPlayer) {
         form.reset(editingPlayer);
       } else {
-        form.reset({ name: '', number: undefined, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' });
+        form.reset({ name: '', number: 0, position: 'Midfield', age: 0, teamId: 'heimdal-g12' });
       }
     }
   }, [editingPlayer, isSheetOpen, form]);
