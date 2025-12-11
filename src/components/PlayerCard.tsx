@@ -26,23 +26,23 @@ export function PlayerCard({ player, minutesPlayed, onSwapRequest, isOnField }: 
       aria-label={`Spiller: ${player.name}, Tid: ${formattedTime}`}
     >
       <Card className={cn(
-        "transition-all duration-200 ease-in-out hover:shadow-xl hover:-translate-y-1 min-h-32 flex flex-col justify-between",
+        "transition-all duration-200 ease-in-out hover:shadow-xl hover:-translate-y-1 min-h-40 p-8 space-y-3 flex flex-col justify-between",
         isOnField ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-card",
         isDeficit && "border-yellow-400 dark:border-yellow-700"
       )}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-6 pb-3">
           <CardTitle className="text-lg font-bold text-pretty">{player.name}</CardTitle>
             {player.number !== undefined && player.number !== null ? (
-              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground font-bold text-sm">
+              <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary text-primary-foreground font-bold text-base">
                 {player.number}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-6 w-6 rounded-full bg-muted text-muted-foreground font-medium text-sm">
+              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted text-muted-foreground font-medium text-sm">
                 -
               </div>
             )}
         </CardHeader>
-        <CardContent className="p-4 pt-0 pb-2 space-y-2">
+        <CardContent className="p-6 pt-0 pb-3 space-y-3">
           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
             <div className="flex items-center">
               <Shirt className="mr-1.5 h-4 w-4" />
@@ -50,13 +50,13 @@ export function PlayerCard({ player, minutesPlayed, onSwapRequest, isOnField }: 
             </div>
             <div className="flex items-center">
               <Clock className="mr-1.5 h-4 w-4" />
-              <span className="text-lg font-mono font-bold text-foreground">{formattedTime}</span>
+              <span className="text-xl font-mono font-bold text-foreground">{formattedTime}</span>
             </div>
           </div>
           {isDeficit && (
             <div className="flex items-center text-xs text-yellow-600 dark:text-yellow-400">
               <TrendingDown className="mr-1.5 h-4 w-4" />
-              <span>{t('match.deficitDisplay', { min: formatTime(minutesPlayed * 60000) })}</span>
+              <span>{t('match.deficitDisplay', { min: formatTime(Math.abs(minutesPlayed) * 60000) })}</span>
             </div>
           )}
         </CardContent>

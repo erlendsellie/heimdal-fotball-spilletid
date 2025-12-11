@@ -38,14 +38,22 @@ export function MatchClock({ matchId, initialTimeMs = 0, durationMinutes, onTick
     const loadState = async () => {
       const savedState = await db.getMeta(`activeMatchClock_${matchId}`);
       if (savedState) {
-        let newElapsedMs = savedState.elapsedMs;
-        if (savedState.status === 'running') {
-          const drift = Date.now() - savedState.anchor;
+        // Coerce elapsedMs to a finite number, default to 0 if invalid
+        let newElapsedMs = Number(savedState.elapsedMs);
+        if (!Number.isFinite(newElapsedMs)) newElapsedMs = 0;
+
+        // Only compute drift if anchor is a finite number
+        if (savedState.status === 'running' && Number.isFinite(Number(savedState.anchor))) {
+          const drift = Date.now() - Number(savedState.anchor);
           newElapsedMs += drift;
         }
-        setElapsedMs(Math.min(newElapsedMs, durationMs));
+
+        // Clamp to valid range [0, durationMs]
+        const clampedElapsed = Math.min(Math.max(newElapsedMs, 0), durationMs);
+
+        setElapsedMs(clampedElapsed);
         setStatus(savedState.status);
-        if (onStatusChange) onStatusChange(savedState.status, newElapsedMs);
+        if (onStatusChange) onStatusChange(savedState.status, clampedElapsed);
       }
     };
     loadState();
