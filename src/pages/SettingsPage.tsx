@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Papa from '@/lib/papaparse-lite';
 import { Button } from '@/components/ui/button';
@@ -11,36 +12,52 @@ import { Navigation } from '@/components/Navigation';
 import { Download, Settings as SettingsIcon } from 'lucide-react';
 import { useTranslation } from '@/lib/translations';
 import db from '@/lib/local-db';
-const mockStatsData = [
-  { name: 'Ola N.', minutter: 120 },
-  { name: 'Kari S.', minutter: 110 },
-  { name: 'Aksel L.', minutter: 135 },
-  { name: 'Ingrid J.', minutter: 180 },
-  { name: 'Sven O.', minutter: 95 },
-];
+import type { Player, Match } from '@shared/types';
 export function SettingsPage() {
   const { t, language, setLanguage } = useTranslation();
+  const [statsData, setStatsData] = useState<any[]>([]);
+  useEffect(() => {
+    async function loadStats() {
+      const tournamentMins = await db.getTournamentMinutes();
+      const players = await db.getPlayers('heimdal-g12');
+      const data = players.map(p => ({
+        name: p.name,
+        minutter: Math.round(tournamentMins[p.id] || 0),
+      })).sort((a, b) => b.minutter - a.minutter);
+      setStatsData(data);
+    }
+    loadStats();
+  }, []);
   const handleExport = async (format: 'csv' | 'json') => {
     toast.loading(t('settings.exporting'));
     try {
-      const players = await db.getPlayers('heimdal-g12'); // Assuming a default teamId
-      const matches = await db.getMatch('m1'); // Example, should fetch all
-      const dataToExport = { players, matches: [matches] };
+      const players = await db.getPlayers('heimdal-g12');
+      const matches = await db.getAllMatches();
+      const tournamentMins = await db.getTournamentMinutes();
       if (format === 'csv') {
-        const csv = Papa.unparse(players);
+        const exportData = players.map(p => ({
+          name: p.name,
+          number: p.number,
+          position: p.position,
+          totalMinutes: Math.round(tournamentMins[p.id] || 0),
+          matchesPlayed: matches.length, // Simplified
+        }));
+        const csv = Papa.unparse(exportData);
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.setAttribute('download', 'spillere.csv');
+        link.setAttribute('download', 'tournament-stats.csv');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       } else {
-        const json = JSON.stringify(dataToExport, null, 2);
+        const oplog = await db.getUnsyncedEvents();
+        const fullData = { players, matches, stats: { tournamentMinutes: tournamentMins }, oplog };
+        const json = JSON.stringify(fullData, null, 2);
         const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.setAttribute('download', 'data.json');
+        link.setAttribute('download', 'full-tournament-data.json');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -50,6 +67,11 @@ export function SettingsPage() {
       toast.error('Export failed.');
       console.error(error);
     }
+  };
+  const handleLanguageChange = (checked: boolean) => {
+    const newLang = checked ? 'en' : 'nb';
+    setLanguage(newLang);
+    document.documentElement.lang = newLang;
   };
   return (
     <>
@@ -65,7 +87,7 @@ export function SettingsPage() {
               </h1>
               <p className="text-muted-foreground mt-2">{t('settings.description')}</p>
             </div>
-            <Tabs defaultValue="settings">
+            <Tabs defaultValue="settings" className="transition-all duration-300">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="settings" aria-controls="settings-tab">{t('settings.general')}</TabsTrigger>
                 <TabsTrigger value="stats" aria-controls="stats-tab">{t('settings.stats')}</TabsTrigger>
@@ -85,7 +107,7 @@ export function SettingsPage() {
                       <Label htmlFor="language-toggle">Språk (Language)</Label>
                       <div className="flex items-center gap-2">
                         <span>NO</span>
-                        <Switch id="language-toggle" checked={language === 'en'} onCheckedChange={(checked) => setLanguage(checked ? 'en' : 'nb')} />
+                        <Switch id="language-toggle" checked={language === 'en'} onCheckedChange={handleLanguageChange} />
                         <span>EN</span>
                       </div>
                     </div>
@@ -104,7 +126,7 @@ export function SettingsPage() {
                   <CardContent>
                     <div style={{ width: '100%', height: 400 }}>
                       <ResponsiveContainer>
-                        <BarChart data={mockStatsData}>
+                        <BarChart data={statsData}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="name" />
                           <YAxis />

@@ -24,7 +24,7 @@ const playerSchema = z.object({
   number: z.number().min(1, "Number must be at least 1").max(99, "Number must be 99 or less"),
   position: z.enum(['Goalkeeper', 'Defense', 'Midfield', 'Forward']),
   age: z.number().optional(),
-  teamId: z.string().default('heimdal-g12'),
+  teamId: z.string(),
 });
 type PlayerFormData = z.infer<typeof playerSchema>;
 export function TeamPage() {
@@ -72,7 +72,11 @@ export function TeamPage() {
         toast.error(t('team.numberRequired'));
         return;
       }
-      const validatedData = playerSchema.parse(data);
+      const validatedData = playerSchema.parse({ ...data, teamId: 'heimdal-g12' });
+      if (players.some(p => p.number === validatedData.number && p.id !== validatedData.id)) {
+        toast.error(t('team.uniqueNumber'));
+        return;
+      }
       if (editingPlayer) {
         const updated = await api<Player>(`/api/players/${editingPlayer.id}`, {
           method: 'PUT',
@@ -170,7 +174,7 @@ export function TeamPage() {
                               <Input
                                 type="number"
                                 {...field}
-                                onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+                                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                                 value={field.value ?? ''}
                               />
                             </FormControl>
@@ -211,7 +215,7 @@ export function TeamPage() {
                               <Input
                                 type="number"
                                 {...field}
-                                onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+                                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                                 value={field.value ?? ''}
                               />
                             </FormControl>

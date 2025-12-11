@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMachine } from '@xstate/react';
-import { matchMachine } from '@/lib/matchMachine';
+import { matchMachine, loadInitialContext } from '@/lib/matchMachine';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +22,13 @@ export function MatchPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [minutesPlayed, setMinutesPlayed] = useState<Record<string, number>>({});
   const [current, send] = useMachine(matchMachine);
+  const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
+    const onFieldSet = current.context?.onField ?? new Set<string>();
+    const onBenchSet = current.context?.onBench ?? new Set<string>();
+    const onField = players.filter(p => onFieldSet.has(p.id));
+    const onBench = players.filter(p => onBenchSet.has(p.id));
+    return [onField, onBench];
+  }, [players, current.context?.onField, current.context?.onBench]);
   useEffect(() => {
     async function loadData() {
       if (!matchId) return;
@@ -42,9 +49,9 @@ export function MatchPage() {
       const playersData = await db.getPlayers('heimdal-g12');
       setPlayers(playersData);
       setMinutesPlayed(matchConfig.deficits || {});
-      const activeLineup = await db.getMeta(`activeMatchLineup_${matchId}`);
-      const initialOnField = activeLineup ? new Set(activeLineup.onField) : new Set(matchConfig.lineup);
-      const initialOnBench = activeLineup ? new Set(activeLineup.onBench) : new Set(playersData.filter(p => !initialOnField.has(p.id)).map(p => p.id));
+      const initialContext = await loadInitialContext(matchId);
+      const initialOnField = initialContext.onField.size > 0 ? initialContext.onField : new Set(matchConfig.lineup);
+      const initialOnBench = initialContext.onBench.size > 0 ? initialContext.onBench : new Set(playersData.filter(p => !initialOnField.has(p.id)).map(p => p.id));
       send({
         type: 'RESET',
         context: {
@@ -63,9 +70,10 @@ export function MatchPage() {
     if ('Notification' in window && Notification.permission !== 'granted') {
       Notification.requestPermission();
     }
-    const timer = setInterval(() => {
+    const timer = setInterval(async () => {
       if (current.matches('running') && Notification.permission === 'granted') {
-        const suggestions = suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even');
+        const strategy = await db.getMeta('matchStrategy') || 'even';
+        const suggestions = suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, strategy);
         if (suggestions.length > 0) {
           const { out } = suggestions[0];
           const notification = new Notification(t('match.suggestionsTitle'), {
@@ -97,13 +105,6 @@ export function MatchPage() {
     });
     toast.success(t('match.substitutionMade'));
   };
-  const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
-    const onFieldSet = current.context?.onField ?? new Set();
-    const onBenchSet = current.context?.onBench ?? new Set();
-    const onField = players.filter(p => onFieldSet.has(p.id));
-    const onBench = players.filter(p => onBenchSet.has(p.id));
-    return [onField, onBench];
-  }, [players, current.context?.onField, current.context?.onBench]);
   const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
   if (!match || !matchId) {
     return (

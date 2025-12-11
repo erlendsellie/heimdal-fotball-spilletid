@@ -1,4 +1,4 @@
-import { createMachine, assign, actions } from 'xstate';
+import { createMachine, assign } from 'xstate';
 import type { Player, MatchEvent } from '@shared/types';
 import db from './local-db';
 export interface MatchContext {
@@ -17,12 +17,14 @@ export type MatchMachineEvent =
   | { type: 'STOP' }
   | { type: 'TICK'; delta: number }
   | { type: 'SUBSTITUTE'; playerOutId: string; playerInId: string }
-  | { type: 'RESET'; context?: Partial<MatchContext> };
-const saveLineup = actions.assign((context: MatchContext) => {
+  | { type: 'RESET'; context?: Partial<MatchContext> }
+  | { type: 'RESUME_LINEUP'; context: { onField: Set<string>; onBench: Set<string>; status?: string } };
+const saveLineup = assign((context: MatchContext, event, { state }) => {
   if (context.matchId) {
     db.setMeta(`activeMatchLineup_${context.matchId}`, {
       onField: Array.from(context.onField),
       onBench: Array.from(context.onBench),
+      status: state.value, // Save the current state value
     });
   }
   return context;
@@ -119,5 +121,22 @@ export const matchMachine = createMachine({
         ...event.context,
       })),
     },
+    RESUME_LINEUP: {
+      actions: assign({
+        onField: ({ event }) => event.context.onField,
+        onBench: ({ event }) => event.context.onBench,
+      }),
+    },
   },
 });
+export async function loadInitialContext(matchId?: string) {
+  if (!matchId) return { onField: new Set<string>(), onBench: new Set<string>() };
+  const lineup = await db.getMeta(`activeMatchLineup_${matchId}`);
+  return lineup
+    ? {
+        onField: new Set(lineup.onField as string[]),
+        onBench: new Set(lineup.onBench as string[]),
+        status: lineup.status,
+      }
+    : { onField: new Set<string>(), onBench: new Set<string>() };
+}

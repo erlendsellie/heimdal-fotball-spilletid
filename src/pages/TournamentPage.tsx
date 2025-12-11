@@ -15,6 +15,19 @@ import { Navigation } from '@/components/Navigation';
 import type { Match, Player } from '@shared/types';
 import { useTranslation } from '@/lib/translations';
 import db from '@/lib/local-db';
+const calculateDeficits = (players: Player[], prevMinutes: Record<string, number>): Record<string, number> => {
+  if (Object.keys(prevMinutes).length === 0) return {};
+  const totalMinutes = Object.values(prevMinutes).reduce((a, b) => a + b, 0);
+  const avgMinutes = players.length > 0 ? totalMinutes / players.length : 0;
+  const deficits: Record<string, number> = {};
+  players.forEach(p => {
+    const pMins = prevMinutes[p.id] || 0;
+    if (pMins < avgMinutes) {
+      deficits[p.id] = Math.round(pMins - avgMinutes);
+    }
+  });
+  return deficits;
+};
 export function TournamentPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -22,6 +35,7 @@ export function TournamentPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [opponent, setOpponent] = useState('');
   const [carryover, setCarryover] = useState(false);
+  const [aggregateMinutes, setAggregateMinutes] = useState<Record<string, number>>({});
   useEffect(() => {
     async function loadData() {
       try {
@@ -37,42 +51,56 @@ export function TournamentPage() {
     }
     loadData();
   }, []);
+  const aggregateStats = useMemo(() => {
+    const totalMinutes: Record<string, number> = {};
+    // A more realistic aggregation would parse all events from all matches.
+    // This is a simplified version for the demo.
+    matches.forEach(match => {
+      const lastSession = match.events.find(e => e.type === 'STOP')?.payload?.minutesPlayed || {};
+      for (const playerId in lastSession) {
+        totalMinutes[playerId] = (totalMinutes[playerId] || 0) + lastSession[playerId];
+      }
+    });
+    db.setTournamentMinutes(totalMinutes);
+    setAggregateMinutes(totalMinutes);
+    return players
+      .map(p => ({
+        name: p.name,
+        minutter: Math.round(totalMinutes[p.id] || 0),
+      }))
+      .sort((a, b) => b.minutter - a.minutter);
+  }, [matches, players]);
   const handleCreateMatch = async () => {
     if (!opponent.trim()) {
       toast.error("Opponent name is required.");
       return;
     }
-    const newMatch: Match = {
-      id: uuidv4(),
+    const matchId = uuidv4();
+    let deficits = {};
+    if (carryover) {
+      deficits = calculateDeficits(players, aggregateMinutes);
+      toast.info("Carryover deficits applied to new match.");
+    }
+    const matchConfig = {
+      id: matchId,
+      teamSize: 7, // Default, can be changed in HomePage sheet
+      duration: 45, // Default
+      carryover,
+      lineup: players.slice(0, 7).map(p => p.id),
+      deficits,
+      opponent: opponent.trim(),
+    };
+    await db.setMeta('newMatchConfig', matchConfig);
+    await db.saveMatch({
+      id: matchId,
       teamId: 'heimdal-g12',
       opponent: opponent.trim(),
-      duration_minutes: 45, // Default duration
+      duration_minutes: 45,
       status: 'Klar',
       events: [],
-    };
-    try {
-      await db.saveMatch(newMatch);
-      setMatches(prev => [...prev, newMatch]);
-      setOpponent('');
-      toast.success(`Match against ${newMatch.opponent} created!`);
-    } catch (error) {
-      toast.error("Failed to create match.");
-    }
-  };
-  const aggregateStats = useMemo(() => {
-    const playerMinutes: Record<string, number> = players.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {});
-    // This is a simplified aggregation. A real implementation would parse events.
-    // For demo, we'll assign random minutes.
-    players.forEach(p => {
-      playerMinutes[p.id] = Math.floor(Math.random() * 90 * matches.length);
     });
-    return Object.entries(playerMinutes)
-      .map(([playerId, minutes]) => ({
-        name: players.find(p => p.id === playerId)?.name || 'Unknown',
-        minutter: minutes,
-      }))
-      .sort((a, b) => b.minutter - a.minutter);
-  }, [matches, players]);
+    navigate(`/match/${matchId}`);
+  };
   return (
     <>
       <ThemeToggle className="fixed top-4 right-4 z-50" />
@@ -88,7 +116,7 @@ export function TournamentPage() {
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-8">
-                <Card>
+                <Card className="bg-gradient-to-br from-heimdal-orange/5 to-heimdal-navy/5">
                   <CardHeader>
                     <CardTitle>{t('tournament.createMatch')}</CardTitle>
                   </CardHeader>
@@ -113,7 +141,7 @@ export function TournamentPage() {
                     matches.map((match, i) => (
                       <motion.div key={match.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: i * 0.1 }}>
                         <Link to={`/match/${match.id}`}>
-                          <Card className="hover:shadow-lg hover:-translate-y-1 transition-transform duration-200">
+                          <Card className="hover:shadow-lg hover:-translate-y-1 transition-transform duration-200 bg-card/50 backdrop-blur-sm">
                             <CardHeader>
                               <CardTitle>vs {match.opponent}</CardTitle>
                               <CardDescription>{match.status}</CardDescription>
@@ -138,7 +166,7 @@ export function TournamentPage() {
                         <BarChart data={aggregateStats} layout="vertical">
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis type="number" />
-                          <YAxis dataKey="name" type="category" width={80} />
+                          <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
                           <Tooltip />
                           <Legend />
                           <Bar dataKey="minutter" fill="#E55A1B" name="Total Minutes" />
