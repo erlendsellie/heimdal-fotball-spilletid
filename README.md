@@ -1,6 +1,6 @@
 # Heimdal Fotball — Spilletid & Bytte-verktøy
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/erlendsellie/heimdal-fotball-spilletid)
 
 ## Overview
 
@@ -126,7 +126,7 @@ Følg luftighet: Bruk TypeScript-streng typing, shadcn-komponenter, og Tailwind 
 ### Cloudflare Deploy
 Appen er optimalisert for Cloudflare – deploy med ett klikk:
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/erlendsellie/heimdal-fotball-spilletid)
 
 ### Manuell deploy
 1. Bygg frontend: `bun run build`.
