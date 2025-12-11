@@ -117,10 +117,15 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.post('/api/players', observerGuard, async (c) => {
     try {
       const player = await c.req.json<Player>();
-      if (!isStr(player.name) || !player.number || !player.teamId) return bad(c, 'Player name, number, and teamId required');
-      const allPlayers = await PlayerEntity.list(c.env);
-      if (allPlayers.items.some(p => p.number === player.number && p.teamId === player.teamId)) {
-        return bad(c, 'Player number must be unique for the team');
+      if (!isStr(player.name) || !player.teamId) return bad(c, 'Player name and teamId required');
+      if (player.number !== undefined && player.number !== null) {
+        if (typeof player.number !== 'number' || !Number.isFinite(player.number)) {
+          return bad(c, 'Player number must be a valid number');
+        }
+        const allPlayers = await PlayerEntity.list(c.env);
+        if (allPlayers.items.some(p => p.number === player.number && p.teamId === player.teamId)) {
+          return bad(c, 'Player number must be unique for the team');
+        }
       }
       const newPlayer = await PlayerEntity.create(c.env, { ...player, id: crypto.randomUUID() });
       return ok(c, newPlayer);

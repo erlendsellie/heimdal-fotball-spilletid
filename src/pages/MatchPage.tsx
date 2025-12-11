@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMachine } from '@xstate/react';
-import { matchMachine, loadInitialContext } from '@/lib/matchMachine';
+import { useLocalMatchMachine } from '@/lib/matchMachineLocal';
+import { loadInitialContext } from '@/lib/matchMachine';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +23,7 @@ export function MatchPage() {
   const [match, setMatch] = useState<Partial<Match> & { teamSize: number; carryover: boolean } | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [minutesPlayed, setMinutesPlayed] = useState<Record<string, number>>({});
-  const [current, send] = useMachine(matchMachine);
+  const [current, send] = useLocalMatchMachine();
   useDebounce(runSync, 5000, [minutesPlayed]);
   const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
     const onFieldSet = (current.context?.onField as Set<string>) ?? new Set<string>();
@@ -35,36 +35,90 @@ export function MatchPage() {
   useEffect(() => {
     async function loadData() {
       if (!matchId) return;
-      const matchConfig = await db.getMeta('newMatchConfig');
+
+      // Try new match config first
+      let matchConfig = await db.getMeta('newMatchConfig');
+
+      // If not present or not matching, try activeMatch meta
+      if (!matchConfig || matchConfig.id !== matchId) {
+        const activeMatchMeta = await db.getMeta('activeMatch');
+        if (activeMatchMeta && activeMatchMeta.id === matchId) {
+          // Prefer activeMatch meta as lightweight config
+          matchConfig = {
+            id: activeMatchMeta.id,
+            duration: activeMatchMeta.duration,
+            teamSize: activeMatchMeta.teamSize,
+            carryover: false,
+            lineup: [],
+          };
+        }
+      }
+
+      // If still no matchConfig, try loading full match from DB
+      if (!matchConfig || matchConfig.id !== matchId) {
+        const persisted = await db.getMatch(matchId);
+        if (persisted) {
+          matchConfig = {
+            id: persisted.id,
+            duration: persisted.duration_minutes,
+            teamSize: persisted.teamSize ?? 11,
+            carryover: false,
+            lineup: [],
+            deficits: {},
+          };
+        }
+      }
+
       if (!matchConfig || matchConfig.id !== matchId) {
         toast.error("Match configuration not found.");
         navigate('/');
         return;
       }
+
+      // Load saved clock state (if any)
+      const savedClock = await db.getMeta(`activeMatchClock_${matchId}`) || { elapsedMs: 0, status: 'stopped' };
+
+      const cfg = matchConfig as any;
+
       setMatch({
         id: matchId,
-        duration_minutes: matchConfig.duration,
-        teamSize: matchConfig.teamSize,
-        carryover: matchConfig.carryover,
+        duration_minutes: cfg.duration,
+        teamSize: cfg.teamSize,
+        carryover: cfg.carryover,
         status: 'Klar',
         teamId: 'heimdal-g12'
       });
+
       const playersData = await db.getPlayers('heimdal-g12');
       setPlayers(playersData);
-      setMinutesPlayed(matchConfig.deficits || {});
+      setMinutesPlayed(cfg.deficits || {});
+
       const initialContext = await loadInitialContext(matchId);
-      const initialOnField = initialContext.onField.size > 0 ? initialContext.onField : new Set<string>(matchConfig.lineup);
+      const initialOnField = initialContext.onField.size > 0 ? initialContext.onField : new Set<string>(cfg.lineup || []);
       const initialOnBench = initialContext.onBench.size > 0 ? initialContext.onBench : new Set<string>(playersData.filter(p => !initialOnField.has(p.id)).map(p => p.id));
+
+      // Initialize last elapsed reference (handled via ref in component)
+      lastElapsedRef.current = savedClock.elapsedMs || 0;
+
       send({
         type: 'RESET',
         context: {
-          matchId,
           onField: initialOnField,
           onBench: initialOnBench,
           players: playersData,
-          durationMs: (matchConfig.duration || 45) * 60 * 1000,
+          durationMs: (cfg.duration || 45) * 60 * 1000,
+          elapsedMs: savedClock.elapsedMs || 0,
         }
       });
+
+      // After RESET, restore running/paused state if applicable
+      if (savedClock.status === 'running') {
+        send({ type: 'RESUME' });
+      } else if (savedClock.status === 'paused') {
+        send({ type: 'PAUSE' });
+      }
+
+      // If we used a newMatchConfig to start, clear it
       await db.setMeta('newMatchConfig', null);
     }
     loadData();
@@ -89,15 +143,22 @@ export function MatchPage() {
     }, 2 * 60 * 1000); // Every 2 minutes
     return () => clearInterval(timer);
   }, [current, minutesPlayed, onBenchPlayers, onFieldPlayers, t]);
+  const lastElapsedRef = useRef<number>(0);
   const handleTick = useCallback((elapsedMs: number) => {
-    const deltaSeconds = 1; // Assuming tick is called every second
-    setMinutesPlayed(prev => {
-      const newMinutes = { ...prev };
-      (current.context?.onField ?? new Set()).forEach((playerId: string) => {
-        newMinutes[playerId] = (newMinutes[playerId] || 0) + (deltaSeconds / 60);
+    // Compute delta from last tick to handle pauses/resumes and variable tick intervals
+    const prevElapsed = lastElapsedRef.current || 0;
+    const deltaMs = Math.max(0, (elapsedMs || 0) - prevElapsed);
+    const deltaMinutes = deltaMs / 60000;
+    if (deltaMinutes > 0) {
+      setMinutesPlayed(prev => {
+        const newMinutes = { ...prev };
+        (current.context?.onField ?? new Set()).forEach((playerId: string) => {
+          newMinutes[playerId] = (newMinutes[playerId] || 0) + deltaMinutes;
+        });
+        return newMinutes;
       });
-      return newMinutes;
-    });
+    }
+    lastElapsedRef.current = elapsedMs || 0;
   }, [current.context?.onField]);
   const handleLineupChange = (playerOutId: string, playerInId: string) => {
     send({ type: 'SUBSTITUTE', playerOutId, playerInId });
@@ -130,17 +191,40 @@ export function MatchPage() {
                 matchId={matchId}
                 durationMinutes={match.duration_minutes || 45}
                 onTick={handleTick}
-                onStatusChange={(status, elapsedMs) => {
+                onStatusChange={async (status, elapsedMs) => {
                   if (status === 'running' && !current.matches('running')) {
                     send({ type: 'START' });
                     db.addEvent({ type: 'START', matchId: matchId!, payload: { initialLineup: Array.from(current.context?.onField ?? new Set()) } });
+                    // persist active match
+                    await db.setMeta('activeMatch', {
+                      id: matchId,
+                      status,
+                      teamSize: match?.teamSize,
+                      duration: match?.duration_minutes || match?.duration_minutes || 45,
+                      updatedAt: Date.now(),
+                    });
                   } else if (status === 'paused' && !current.matches('paused')) {
                     send({ type: 'PAUSE' });
+                    await db.setMeta('activeMatch', {
+                      id: matchId,
+                      status,
+                      teamSize: match?.teamSize,
+                      duration: match?.duration_minutes || match?.duration_minutes || 45,
+                      updatedAt: Date.now(),
+                    });
                   } else if (status === 'running' && current.matches('paused')) {
                     send({ type: 'RESUME' });
+                    await db.setMeta('activeMatch', {
+                      id: matchId,
+                      status,
+                      teamSize: match?.teamSize,
+                      duration: match?.duration_minutes || match?.duration_minutes || 45,
+                      updatedAt: Date.now(),
+                    });
                   } else if (status === 'stopped' && !current.matches('stopped')) {
                     send({ type: 'STOP' });
                     db.setMeta('lastSessionMinutes', minutesPlayed);
+                    await db.setMeta('activeMatch', null);
                   }
                 }}
               />

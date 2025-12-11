@@ -3,7 +3,7 @@ import { Shirt, ArrowRightLeft, Clock, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, formatTime } from '@/lib/utils';
 import type { Player } from '@shared/types';
 import { useTranslation } from '@/lib/translations';
 interface PlayerCardProps {
@@ -12,7 +12,10 @@ interface PlayerCardProps {
   onSwapRequest: (playerId: string) => void;
   isOnField: boolean;
 }
-const formatMinutes = (minutes: number) => Math.floor(minutes);
+const formatMinutes = (minutes: number) => {
+  const ms = Math.round(minutes * 60000);
+  return formatTime(ms);
+};
 export function PlayerCard({ player, minutesPlayed, onSwapRequest, isOnField }: PlayerCardProps) {
   const { t } = useTranslation();
   const isDeficit = minutesPlayed < 0;
@@ -29,13 +32,19 @@ export function PlayerCard({ player, minutesPlayed, onSwapRequest, isOnField }: 
         isOnField ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-card",
         isDeficit && "border-yellow-400 dark:border-yellow-700"
       )}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg font-bold text-pretty">{player.name}</CardTitle>
-          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground font-bold text-sm">
-            {player.number}
-          </div>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle className="text-xl font-bold text-pretty">{player.name}</CardTitle>
+            {player.number !== undefined && player.number !== null ? (
+              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                {player.number}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-6 w-6 rounded-full bg-muted text-muted-foreground font-medium text-sm">
+                -
+              </div>
+            )}
         </CardHeader>
-        <CardContent className="pb-4">
+        <CardContent className="pb-6">
           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
             <div className="flex items-center">
               <Shirt className="mr-1.5 h-4 w-4" />
@@ -43,7 +52,7 @@ export function PlayerCard({ player, minutesPlayed, onSwapRequest, isOnField }: 
             </div>
             <div className="flex items-center">
               <Clock className="mr-1.5 h-4 w-4" />
-              <span>{formatMinutes(Math.max(0, minutesPlayed))} min</span>
+              <span>{formatMinutes(Math.max(0, minutesPlayed))}</span>
             </div>
           </div>
           {isDeficit && (

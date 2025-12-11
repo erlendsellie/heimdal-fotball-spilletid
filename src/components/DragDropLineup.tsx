@@ -68,7 +68,7 @@ export function DragDropLineup({ onFieldPlayers, onBenchPlayers, minutesPlayed, 
         payload: { playerOutId, playerInId, minute: Date.now() / 60000 }
       });
     }
-  }, [onFieldIds, onBenchIds, onLineupChange, matchId]);
+  }, [onFieldIds, onLineupChange, matchId]);
   const activePlayer = activeId ? allPlayersMap.get(activeId) : null;
   const activeIsOnField = activeId ? onFieldIds.includes(activeId) : false;
   return (

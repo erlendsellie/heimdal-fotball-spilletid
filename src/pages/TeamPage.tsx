@@ -21,9 +21,25 @@ import { api } from '@/lib/api-client';
 const playerSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Name is required"),
-  number: z.number().min(1, "Number must be at least 1").max(99, "Number must be 99 or less").optional(),
+  number: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const s = val.trim();
+      if (s === '') return undefined;
+      const n = Number(s);
+      return isNaN(n) ? val : n;
+    }
+    return val;
+  }, z.number().min(1, "Number must be at least 1").max(99, "Number must be 99 or less").optional()),
   position: z.enum(['Goalkeeper', 'Defense', 'Midfield', 'Forward']),
-  age: z.number().optional(),
+  age: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const s = val.trim();
+      if (s === '') return undefined;
+      const n = Number(s);
+      return isNaN(n) ? val : n;
+    }
+    return val;
+  }, z.number().optional()),
   teamId: z.string(),
 });
 type PlayerFormData = z.infer<typeof playerSchema>;
@@ -35,7 +51,7 @@ export function TeamPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const sheetTriggerId = useId();
   const form = useForm<PlayerFormData>({
-    resolver: zodResolver(playerSchema),
+    resolver: zodResolver(playerSchema) as any,
     defaultValues: { name: '', number: undefined, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' },
   });
   useEffect(() => {
@@ -74,6 +90,7 @@ export function TeamPage() {
         return;
       }
       if (editingPlayer) {
+        console.debug('Updating player with payload', validatedData);
         const updated = await api<Player>(`/api/players/${editingPlayer.id}`, {
           method: 'PUT',
           body: JSON.stringify(validatedData),
@@ -82,6 +99,7 @@ export function TeamPage() {
         await db.savePlayer(updated);
         toast.success(t('team.updated'));
       } else {
+        console.debug('Creating player with payload', validatedData);
         const created = await api<Player>('/api/players', {
           method: 'POST',
           body: JSON.stringify(validatedData),
@@ -94,7 +112,7 @@ export function TeamPage() {
       setEditingPlayer(null);
     } catch (error: any) {
       console.error('Player save failed', error);
-      toast.error(error?.error ?? 'An error occurred.');
+      toast.error(error?.message ?? 'An error occurred.');
     }
   };
   const handleDelete = async (playerId: string) => {
@@ -105,7 +123,7 @@ export function TeamPage() {
       toast.success(t('team.deleted'));
     } catch (err: any) {
       console.error('Delete failed', err);
-      toast.error(err?.error ?? 'Failed to delete player.');
+      toast.error(err?.message ?? 'Failed to delete player.');
     }
   };
   const filteredPlayers = players.filter((player) =>
@@ -146,7 +164,7 @@ export function TeamPage() {
                     <SheetTitle>{editingPlayer ? t('team.editTitle') : t('team.addTitle')}</SheetTitle>
                   </SheetHeader>
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 mt-4" noValidate>
+                    <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error('Validation errors', errors))} className="space-y-8 mt-4" noValidate>
                       <FormField
                         control={form.control}
                         name="name"
@@ -171,7 +189,7 @@ export function TeamPage() {
                                 type="number"
                                 placeholder="#10 (valgfri)"
                                 {...field}
-                                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                                onChange={field.onChange}
                                 value={field.value ?? ''}
                               />
                             </FormControl>
@@ -212,7 +230,7 @@ export function TeamPage() {
                               <Input
                                 type="number"
                                 {...field}
-                                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                                onChange={field.onChange}
                                 value={field.value ?? ''}
                               />
                             </FormControl>

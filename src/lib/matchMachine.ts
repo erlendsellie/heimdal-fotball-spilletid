@@ -30,9 +30,9 @@ const saveLineup = (status: string) =>
     }
     return context;
   });
-export const matchMachine = createMachine({
+export const matchMachine = (createMachine as unknown as any)({
   id: 'match',
-  types: {} as { context: MatchContext; events: MatchMachineEvent },
+
   initial: 'idle',
   context: {
     matchId: '',
