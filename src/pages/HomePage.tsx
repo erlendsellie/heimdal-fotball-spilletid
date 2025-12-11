@@ -64,7 +64,7 @@ function ActiveMatchCard({ activeMatch }: { activeMatch: any }) {
       transition={{ duration: 0.5 }}
       className="w-full max-w-3xl mb-8"
     >
-      <Card className="bg-gradient-to-r from-heimdal-orange/10 to-heimdal-navy/10 border-heimdal-orange/50" aria-label={`Active match timer: ${formatTime(liveElapsed)}`}>
+      <Card className="bg-gradient-to-r from-heimdal-green/10 to-heimdal-red/10 border-heimdal-green/50" aria-label={`Active match timer: ${formatTime(liveElapsed)}`}>
         <CardHeader>
           <CardTitle>{t('home.paaagaendeKamp')}</CardTitle>
           <CardDescription>{t('home.activeMatchDesc')}</CardDescription>
@@ -73,7 +73,7 @@ function ActiveMatchCard({ activeMatch }: { activeMatch: any }) {
           <div className="text-5xl font-mono font-bold text-foreground" aria-live="polite" data-testid="live-time">
             {formatTime(liveElapsed)}
           </div>
-          <Button onClick={() => navigate(`/match/${activeMatch.id}`)} className="bg-heimdal-orange hover:bg-heimdal-navy text-white h-12 px-8 text-lg">
+          <Button onClick={() => navigate(`/match/${activeMatch.id}`)} className="bg-heimdal-green hover:bg-heimdal-red text-white h-12 px-8 text-lg">
             {t('home.fortsettKamp')}
           </Button>
         </CardContent>
@@ -141,10 +141,14 @@ export function HomePage() {
                 transition={{ duration: 0.6 }}
                 className="text-center"
               >
-                <img src="https://via.placeholder.com/192x192/E55A1B/FFFFFF?text=Heimdal" className="mx-auto h-20 w-20 mb-4 rounded-full bg-heimdal-orange shadow-lg" alt="Heimdal Fotball Logo" />
+                <svg width="80" height="80" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="mx-auto h-20 w-20 mb-4 rounded-full shadow-lg floating" aria-label="Heimdal Fotball Logo">
+                  <rect width="100" height="100" fill="#006400"/>
+                  <text x="50" y="65" textAnchor="middle" fill="#DC143C" fontSize="40" fontWeight="bold" fontFamily="Inter, sans-serif">H-F</text>
+                  <circle cx="50" cy="20" r="8" fill="#FFD700"/>
+                </svg>
                 <div className="relative inline-block">
-                  <div className="absolute -inset-2 bg-gradient-to-r from-heimdal-orange to-heimdal-navy rounded-full blur-xl opacity-50" />
-                  <h1 className="relative text-5xl md:text-7xl font-bold font-display tracking-tight text-pretty">
+                  <div className="absolute -inset-2 bg-gradient-to-r from-heimdal-green to-heimdal-red rounded-full blur-xl opacity-50" />
+                  <h1 className="relative text-5xl md:text-7xl font-bold font-display tracking-tight text-pretty" lang="nb">
                     {t('home.heroTitle')}
                   </h1>
                 </div>
@@ -164,11 +168,11 @@ export function HomePage() {
                 >
                   <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetTrigger asChild>
-                      <Button size="lg" className="bg-heimdal-orange hover:bg-heimdal-navy text-white text-xl font-semibold px-8 py-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 shadow-glow hover:shadow-glow-lg">
+                      <Button size="lg" className="bg-heimdal-green hover:bg-heimdal-red text-white text-xl font-semibold px-8 py-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 shadow-glow hover:shadow-glow-lg">
                         {t('home.startButton')}
                       </Button>
                     </SheetTrigger>
-                    <SheetContent className="bg-gradient-to-b from-heimdal-orange/10 via-background to-heimdal-navy/10">
+                    <SheetContent className="bg-gradient-to-b from-heimdal-green/10 via-background to-heimdal-red/10">
                       <SheetHeader>
                         <SheetTitle className="text-2xl font-bold">{t('home.createMatch')}</SheetTitle>
                       </SheetHeader>
@@ -209,7 +213,7 @@ export function HomePage() {
                           <Switch id="carryover" checked={carryover} onCheckedChange={setCarryover} />
                           <Label htmlFor="carryover">{t('home.carryover')}</Label>
                         </div>
-                        <Button onClick={handleStartMatch} size="lg" className="w-full bg-heimdal-orange hover:bg-heimdal-navy text-white text-lg font-semibold">
+                        <Button onClick={handleStartMatch} size="lg" className="w-full bg-heimdal-green hover:bg-heimdal-red text-white text-lg font-semibold">
                           {t('home.startConfirm')}
                         </Button>
                       </div>
@@ -221,7 +225,7 @@ export function HomePage() {
           </div>
         </main>
         <footer className="text-center py-8 text-muted-foreground/80">
-          <p>Built with ❤️ at Cloudflare</p>
+          <p>Built with ��️ at Cloudflare</p>
         </footer>
       </div>
       <Toaster richColors />

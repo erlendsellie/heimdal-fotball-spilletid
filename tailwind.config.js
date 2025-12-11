@@ -5,6 +5,7 @@ export default {
   theme: {
   	extend: {
   		fontFamily: {
+        // Inter with latin-extended is loaded in index.html for ÆØÅ support
   			sans: [
   				'Inter',
   				'-apple-system',
@@ -92,8 +93,9 @@ export default {
   		},
   		colors: {
         heimdal: {
-          orange: '#E55A1B',
-          navy: '#0B3D91',
+          green: '#006400',
+          red: '#DC143C',
+          yellow: '#FFD700',
           white: '#FFFFFF',
         },
   			background: 'hsl(var(--background))',
@@ -149,9 +151,9 @@ export default {
   		},
   		boxShadow: {
   			soft: '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
-  			glow: '0 0 20px -5px rgba(229, 90, 27, 0.4)',
-        'glow-orange': '0 0 20px rgba(229,90,27,0.4)',
-  			'glow-lg': '0 0 40px -10px rgba(229, 90, 27, 0.3)',
+  			glow: '0 0 20px -5px rgba(0, 100, 0, 0.4)',
+        'glow-green': '0 0 20px rgba(0,100,0,0.4)',
+  			'glow-lg': '0 0 40px -10px rgba(0, 100, 0, 0.3)',
   			primary: '0 0 20px -5px hsl(var(--primary) / 0.4)',
   			glass: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
   		},
@@ -196,10 +198,10 @@ export default {
   			},
   			glow: {
   				'0%, 100%': {
-  					boxShadow: '0 0 20px -5px rgba(229, 90, 27, 0.4)'
+  					boxShadow: '0 0 20px -5px rgba(0, 100, 0, 0.4)'
   				},
   				'50%': {
-  					boxShadow: '0 0 40px -5px rgba(229, 90, 27, 0.6)'
+  					boxShadow: '0 0 40px -5px rgba(0, 100, 0, 0.6)'
   				}
   			},
   			float: {
@@ -207,7 +209,7 @@ export default {
   					transform: 'translateY(0px)'
   				},
   				'50%': {
-  					transform: 'translateY(-10px)'
+  					transform: 'translateY(-4px)'
   				}
   			},
   			'accordion-down': {
@@ -234,15 +236,15 @@ export default {
   			shimmer: 'shimmer 2s infinite',
   			glow: 'glow 2s ease-in-out infinite',
         'pulse-glow': 'glow 2s ease-in-out infinite',
-  			float: 'float 3s ease-in-out infinite',
+  			float: 'float 2s ease-in-out infinite',
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out'
   		},
   		backgroundImage: {
-  			'gradient-rainbow': 'linear-gradient(135deg, #E55A1B 0%, #0B3D91 50%, #E55A1B 100%)',
-  			'gradient-primary': 'linear-gradient(135deg, #E55A1B, #D14615)',
-        'gradient-hero': 'linear-gradient(135deg, var(--heimdal-orange) 0%, var(--heimdal-navy) 100%)',
-  			'gradient-mesh': 'radial-gradient(at 40% 20%, hsla(22,80%,50%,1) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(220,85%,30%,1) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(0,0%,100%,1) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(22,80%,50%,1) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(220,85%,30%,1) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(220,85%,30%,1) 0px, transparent 50%), radial-gradient(at 0% 0%, hsla(22,80%,50%,1) 0px, transparent 50%)'
+  			'gradient-rainbow': 'linear-gradient(135deg, #006400 0%, #DC143C 50%, #FFD700 100%)',
+  			'gradient-primary': 'linear-gradient(135deg, #006400, #004d00)',
+        'gradient-shield': 'linear-gradient(135deg, #006400 0%, #DC143C 50%, #FFD700 100%)',
+  			'gradient-mesh': 'radial-gradient(at 40% 20%, hsla(120,100%,20%,1) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(348,79%,47%,1) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(0,0%,100%,1) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(120,100%,20%,1) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(348,79%,47%,1) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(348,79%,47%,1) 0px, transparent 50%), radial-gradient(at 0% 0%, hsla(120,100%,20%,1) 0px, transparent 50%)'
   		}
   	}
   },

@@ -9,7 +9,7 @@ export const MOCK_CHATS: Chat[] = [
 export const MOCK_CHAT_MESSAGES: ChatMessage[] = [
   { id: 'm1', chatId: 'c1', userId: 'u1', text: 'Hello', ts: Date.now() },
 ];
-// Heimdal Fotball Data
+// Heimdal Fotball Data - Includes ÆØÅ for font testing
 export const MOCK_PLAYERS: Player[] = [
   { id: 'p1', teamId: 'heimdal-g12', name: 'Ola Nordmann', number: 10, position: 'Forward' },
   { id: 'p2', teamId: 'heimdal-g12', name: 'Kari Svensson', number: 7, position: 'Midfield' },
@@ -23,6 +23,8 @@ export const MOCK_PLAYERS: Player[] = [
   { id: 'p10', teamId: 'heimdal-g12', name: 'Nora Andersen', number: 6, position: 'Midfield' },
   { id: 'p11', teamId: 'heimdal-g12', name: 'Jakob Nilsen', number: 3, position: 'Defense' },
   { id: 'p12', teamId: 'heimdal-g12', name: 'Frida Pettersen', number: 12, position: 'Midfield' },
+  { id: 'p13', teamId: 'heimdal-g12', name: 'Ævar Ødegaard', number: 13, position: 'Forward' },
+  { id: 'p14', teamId: 'heimdal-g12', name: 'Åse Lunde', number: 14, position: 'Midfield' },
 ];
 export const MOCK_MATCHES: Match[] = [
   { id: 'm1', teamId: 'heimdal-g12', opponent: 'Ranheim IL', duration_minutes: 45, status: 'Klar', events: [] },

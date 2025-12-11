@@ -44,8 +44,12 @@ export function LoginPage() {
             >
               <Card className="w-full max-w-md mx-auto shadow-2xl">
                 <CardHeader className="text-center">
-                  <img src="https://via.placeholder.com/192x192/E55A1B/FFFFFF?text=Heimdal" className="mx-auto h-16 w-16 mb-4 rounded-full bg-heimdal-orange" alt="Heimdal Fotball Logo" />
-                  <div className="inline-block mx-auto bg-gradient-to-r from-heimdal-orange to-heimdal-navy p-3 rounded-full">
+                  <svg width="64" height="64" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16 mb-4 rounded-full" aria-label="Heimdal Fotball Logo">
+                    <rect width="100" height="100" fill="#006400"/>
+                    <text x="50" y="65" textAnchor="middle" fill="#DC143C" fontSize="40" fontWeight="bold" fontFamily="Inter, sans-serif">H-F</text>
+                    <circle cx="50" cy="20" r="8" fill="#FFD700"/>
+                  </svg>
+                  <div className="inline-block mx-auto bg-gradient-to-r from-heimdal-green to-heimdal-red p-3 rounded-full">
                     <ShieldCheck className="h-8 w-8 text-white" />
                   </div>
                   <CardTitle className="text-3xl font-bold mt-4">{t('login.title')}</CardTitle>
@@ -63,6 +67,7 @@ export function LoginPage() {
                         onChange={(e) => setEmail(e.target.value)}
                         required
                         disabled={isLoading}
+                        className="h-12"
                       />
                     </div>
                     <div className="space-y-2">
@@ -74,9 +79,10 @@ export function LoginPage() {
                         onChange={(e) => setPassword(e.target.value)}
                         required
                         disabled={isLoading}
+                        className="h-12"
                       />
                     </div>
-                    <Button type="submit" className="w-full bg-heimdal-orange hover:bg-heimdal-navy text-white" disabled={isLoading}>
+                    <Button type="submit" className="w-full bg-heimdal-green hover:bg-heimdal-red text-white" disabled={isLoading}>
                       {isLoading ? t('login.loading') : t('login.submit')}
                     </Button>
                   </form>

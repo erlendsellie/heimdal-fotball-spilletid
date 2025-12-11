@@ -11,6 +11,7 @@ import { HomePage } from '@/pages/HomePage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MatchPage } from '@/pages/MatchPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { TeamPage } from '@/pages/TeamPage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 // Mock dependencies
@@ -19,6 +20,7 @@ vi.mock('@/lib/local-db', () => ({
     getPlayers: vi.fn().mockResolvedValue([
       { id: 'p1', name: 'Ola Nordmann', number: 10, position: 'Forward', teamId: 'heimdal-g12' },
       { id: 'p2', name: 'Kari Svensson', number: 7, position: 'Midfield', teamId: 'heimdal-g12' },
+      { id: 'p13', name: 'Ævar Ødegaard', number: 13, position: 'Forward', teamId: 'heimdal-g12' },
     ]),
     getMeta: vi.fn().mockResolvedValue(null),
     setMeta: vi.fn().mockResolvedValue(undefined),
@@ -28,6 +30,8 @@ vi.mock('@/lib/local-db', () => ({
     getUnsyncedEvents: vi.fn().mockResolvedValue([]),
     getActiveMatch: vi.fn().mockResolvedValue(null),
     addEvent: vi.fn().mockResolvedValue(undefined),
+    savePlayer: vi.fn().mockResolvedValue(undefined),
+    deletePlayer: vi.fn().mockResolvedValue(undefined),
   },
 }));
 vi.mock('@/lib/auth', () => ({
@@ -36,8 +40,8 @@ vi.mock('@/lib/auth', () => ({
     login: vi.fn().mockResolvedValue({ token: 'test-token' }),
   },
 }));
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal();
   return {
     ...actual,
     useParams: () => ({ matchId: 'test-match-id' }),
@@ -62,6 +66,7 @@ describe('Full User Flow E2E Simulation', () => {
         <LoginPage />
       </MemoryRouter>
     );
+    expect(screen.getAllByLabelText('Heimdal Fotball Logo').length).toBeGreaterThan(0);
     await userEvent.type(screen.getByLabelText(/e-post/i), 'trener@heimdal.no');
     await userEvent.type(screen.getByLabelText(/passord/i), 'password123');
     await userEvent.click(screen.getByRole('button', { name: /logg inn/i }));
@@ -71,6 +76,7 @@ describe('Full User Flow E2E Simulation', () => {
   it('creates a new match from the homepage', async () => {
     const { default: db } = await import('@/lib/local-db');
     render(<AllProviders><HomePage /></AllProviders>);
+    expect(screen.getByLabelText('Heimdal Fotball Logo')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /start ny kamp/i }));
     await waitFor(() => {
       expect(screen.getByText(/ny kamp/i)).toBeInTheDocument();
@@ -109,6 +115,12 @@ describe('Full User Flow E2E Simulation', () => {
     await waitFor(() => {
       expect(mockUnparse).toHaveBeenCalled();
       expect(window.URL.createObjectURL).toHaveBeenCalled();
+    });
+  });
+  it('renders Norwegian characters correctly', async () => {
+    render(<AllProviders><TeamPage /></AllProviders>);
+    await waitFor(() => {
+      expect(screen.getByText('Ævar Ødegaard')).toBeInTheDocument();
     });
   });
 });
