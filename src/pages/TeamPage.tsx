@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { motion } from 'framer-motion';
 import { PlusCircle, User, Edit, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -18,17 +18,12 @@ import { Navigation } from '@/components/Navigation';
 import { useTranslation } from '@/lib/translations';
 import db from '@/lib/local-db';
 import { api } from '@/lib/api-client';
-import { useId } from 'react';
-/**
- * Zod schema for player form.
- * Uses z.coerce.number() for 'number' and 'age' as required.
- */
 const playerSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Name is required"),
-  number: z.coerce.number().min(1, "Number must be at least 1").max(99, "Number must be 99 or less"),
+  number: z.number().min(1, "Number must be at least 1").max(99, "Number must be 99 or less"),
   position: z.enum(['Goalkeeper', 'Defense', 'Midfield', 'Forward']),
-  age: z.coerce.number().optional(),
+  age: z.number().optional(),
   teamId: z.string().default('heimdal-g12'),
 });
 type PlayerFormData = z.infer<typeof playerSchema>;
@@ -41,11 +36,10 @@ export function TeamPage() {
   const sheetTriggerId = useId();
   const form = useForm<PlayerFormData>({
     resolver: zodResolver(playerSchema),
-    defaultValues: { name: '', number: 0, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' },
+    defaultValues: { name: '', number: undefined, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' },
   });
   useEffect(() => {
-    // load players from local-db on mount
-    (async () => {
+    const loadPlayers = async () => {
       try {
         const localPlayers = await db.getPlayers('heimdal-g12');
         setPlayers(localPlayers);
@@ -53,13 +47,12 @@ export function TeamPage() {
         console.error('Failed to load players from local db', err);
         toast.error(t('team.description'));
       }
-    })();
+    };
+    loadPlayers();
   }, [t]);
-  // When opening sheet for edit or create, reset form values appropriately
   useEffect(() => {
     if (isSheetOpen) {
       if (editingPlayer) {
-        // ensure form fields use appropriate types (numbers -> number or undefined)
         form.reset({
           id: editingPlayer.id,
           name: editingPlayer.name,
@@ -69,27 +62,29 @@ export function TeamPage() {
           teamId: editingPlayer.teamId ?? 'heimdal-g12',
         });
       } else {
-        form.reset({ name: '', number: 0, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' });
+        form.reset({ name: '', number: undefined, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSheetOpen, editingPlayer]);
+  }, [isSheetOpen, editingPlayer, form]);
   const onSubmit = async (data: PlayerFormData) => {
     try {
+      if (!data.number) {
+        toast.error(t('team.numberRequired'));
+        return;
+      }
+      const validatedData = playerSchema.parse(data);
       if (editingPlayer) {
-        // Update existing player
         const updated = await api<Player>(`/api/players/${editingPlayer.id}`, {
           method: 'PUT',
-          body: JSON.stringify(data),
+          body: JSON.stringify(validatedData),
         });
         setPlayers((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
         await db.savePlayer(updated);
         toast.success(t('team.updated'));
       } else {
-        // Create new player
         const created = await api<Player>('/api/players', {
           method: 'POST',
-          body: JSON.stringify(data),
+          body: JSON.stringify(validatedData),
         });
         setPlayers((prev) => [...prev, created]);
         await db.savePlayer(created);
@@ -99,7 +94,7 @@ export function TeamPage() {
       setEditingPlayer(null);
     } catch (error: any) {
       console.error('Player save failed', error);
-      toast.error(error?.message ?? 'An error occurred.');
+      toast.error(error?.error ?? 'An error occurred.');
     }
   };
   const handleDelete = async (playerId: string) => {
@@ -110,7 +105,7 @@ export function TeamPage() {
       toast.success(t('team.deleted'));
     } catch (err: any) {
       console.error('Delete failed', err);
-      toast.error(err?.message ?? 'Failed to delete player.');
+      toast.error(err?.error ?? 'Failed to delete player.');
     }
   };
   const filteredPlayers = players.filter((player) =>
@@ -174,10 +169,9 @@ export function TeamPage() {
                             <FormControl>
                               <Input
                                 type="number"
-                                value={field.value !== undefined && field.value !== null ? String(field.value) : ''}
-                                onChange={(e) => {
-                                  field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10));
-                                }}
+                                {...field}
+                                onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+                                value={field.value ?? ''}
                               />
                             </FormControl>
                             <FormMessage />
@@ -216,10 +210,9 @@ export function TeamPage() {
                             <FormControl>
                               <Input
                                 type="number"
-                                value={field.value !== undefined && field.value !== null ? String(field.value) : ''}
-                                onChange={(e) => {
-                                  field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10));
-                                }}
+                                {...field}
+                                onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
+                                value={field.value ?? ''}
                               />
                             </FormControl>
                             <FormMessage />

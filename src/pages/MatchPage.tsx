@@ -10,7 +10,6 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { MatchClock } from '@/components/MatchClock';
 import { DragDropLineup } from '@/components/DragDropLineup';
 import type { Player, Match } from '@shared/types';
-
 import { suggestSwaps } from '@/lib/substitutionSuggestions';
 import { Navigation } from '@/components/Navigation';
 import { useTranslation } from '@/lib/translations';
@@ -37,29 +36,19 @@ export function MatchPage() {
         duration_minutes: matchConfig.duration,
         teamSize: matchConfig.teamSize,
         carryover: matchConfig.carryover,
-        opponent: matchConfig.opponent,
         status: 'Klar',
         teamId: 'heimdal-g12'
       });
       const playersData = await db.getPlayers('heimdal-g12');
       setPlayers(playersData);
-      let initialMinutes = playersData.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {});
-      if (matchConfig.carryover) {
-        const prevMinutes = await db.getPreviousMinutes();
-        const totalMinutes = Object.values(prevMinutes).reduce((a, b) => a + b, 0);
-        const avgMinutes = playersData.length > 0 ? totalMinutes / playersData.length : 0;
-        initialMinutes = playersData.reduce((acc, p) => {
-          const pMins = prevMinutes[p.id] || 0;
-          const deficit = pMins < avgMinutes ? Math.round((pMins - avgMinutes) / 2) : 0;
-          return { ...acc, [p.id]: deficit };
-        }, {});
-      }
-      setMinutesPlayed(initialMinutes);
-      const initialOnField = new Set(playersData.slice(0, matchConfig.teamSize).map(p => p.id));
-      const initialOnBench = new Set(playersData.slice(matchConfig.teamSize).map(p => p.id));
+      setMinutesPlayed(matchConfig.deficits || {});
+      const activeLineup = await db.getMeta(`activeMatchLineup_${matchId}`);
+      const initialOnField = activeLineup ? new Set(activeLineup.onField) : new Set(matchConfig.lineup);
+      const initialOnBench = activeLineup ? new Set(activeLineup.onBench) : new Set(playersData.filter(p => !initialOnField.has(p.id)).map(p => p.id));
       send({
         type: 'RESET',
         context: {
+          matchId,
           onField: initialOnField,
           onBench: initialOnBench,
           players: playersData,
@@ -70,6 +59,25 @@ export function MatchPage() {
     }
     loadData();
   }, [matchId, send, navigate]);
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+    const timer = setInterval(() => {
+      if (current.matches('running') && Notification.permission === 'granted') {
+        const suggestions = suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even');
+        if (suggestions.length > 0) {
+          const { out } = suggestions[0];
+          const notification = new Notification(t('match.suggestionsTitle'), {
+            body: t('match.notifyEven', { player: out.name }),
+            tag: 'heimdal-sub-suggestion',
+          });
+          notification.onclick = () => window.focus();
+        }
+      }
+    }, 2 * 60 * 1000); // Every 2 minutes
+    return () => clearInterval(timer);
+  }, [current, minutesPlayed, onBenchPlayers, onFieldPlayers, t]);
   const handleTick = useCallback((elapsedMs: number) => {
     const deltaSeconds = 1; // Assuming tick is called every second
     setMinutesPlayed(prev => {
@@ -97,7 +105,7 @@ export function MatchPage() {
     return [onField, onBench];
   }, [players, current.context?.onField, current.context?.onBench]);
   const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
-  if (!match) {
+  if (!match || !matchId) {
     return (
       <div className="center h-screen"><p aria-live="polite">{t('match.loading')}</p></div>
     );
@@ -119,17 +127,24 @@ export function MatchPage() {
               </div>
             </div>
             <div className="space-y-8">
-              <MatchClock durationMinutes={match.duration_minutes || 45} onTick={handleTick} onStatusChange={(status) => {
-                if (status === 'running' && !current.matches('running')) {
-                  send({ type: 'START' });
-                  db.addEvent({ type: 'START', matchId: matchId!, payload: { initialLineup: Array.from(current.context?.onField ?? new Set()) } });
-                }
-                if (status === 'paused') send({ type: 'PAUSE' });
-                if (status === 'stopped') {
-                  send({ type: 'STOP' });
-                  db.setMeta('lastSessionMinutes', minutesPlayed);
-                }
-              }} />
+              <MatchClock
+                matchId={matchId}
+                durationMinutes={match.duration_minutes || 45}
+                onTick={handleTick}
+                onStatusChange={(status, elapsedMs) => {
+                  if (status === 'running' && !current.matches('running')) {
+                    send({ type: 'START' });
+                    db.addEvent({ type: 'START', matchId: matchId!, payload: { initialLineup: Array.from(current.context?.onField ?? new Set()) } });
+                  } else if (status === 'paused' && !current.matches('paused')) {
+                    send({ type: 'PAUSE' });
+                  } else if (status === 'running' && current.matches('paused')) {
+                    send({ type: 'RESUME' });
+                  } else if (status === 'stopped' && !current.matches('stopped')) {
+                    send({ type: 'STOP' });
+                    db.setMeta('lastSessionMinutes', minutesPlayed);
+                  }
+                }}
+              />
               <DragDropLineup
                 onFieldPlayers={onFieldPlayers}
                 onBenchPlayers={onBenchPlayers}
