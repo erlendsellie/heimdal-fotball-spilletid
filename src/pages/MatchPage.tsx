@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMachine } from '@xstate/react';
+import { useLocalMatchMachine } from '@/lib/matchMachineLocal';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { MatchClock } from '@/components/MatchClock';
 import { DragDropLineup } from '@/components/DragDropLineup';
 import type { Player, Match } from '@shared/types';
-import { matchMachine } from '@/lib/matchMachine';
+
 import { suggestSwaps } from '@/lib/substitutionSuggestions';
 import { Navigation } from '@/components/Navigation';
 import { useTranslation } from '@/lib/translations';
@@ -21,7 +21,7 @@ export function MatchPage() {
   const [match, setMatch] = useState<Partial<Match> & { teamSize: number; carryover: boolean } | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [minutesPlayed, setMinutesPlayed] = useState<Record<string, number>>({});
-  const [current, send] = useMachine(matchMachine);
+  const [current, send] = useLocalMatchMachine();
   useEffect(() => {
     async function loadData() {
       if (!matchId) return;
