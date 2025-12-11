@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useLocalMatchMachine } from '@/lib/matchMachineLocal';
+import { useLocalMatchMachine } from '@/lib/matchMachine';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,26 +73,28 @@ export function MatchPage() {
     const deltaSeconds = 1; // Assuming tick is called every second
     setMinutesPlayed(prev => {
       const newMinutes = { ...prev };
-      current.context.onField.forEach((playerId: string) => {
+      (current.context?.onField ?? new Set()).forEach((playerId: string) => {
         newMinutes[playerId] = (newMinutes[playerId] || 0) + (deltaSeconds / 60);
       });
       return newMinutes;
     });
-  }, [current.context.onField]);
+  }, [current.context?.onField]);
   const handleLineupChange = (playerOutId: string, playerInId: string) => {
     send({ type: 'SUBSTITUTE', playerOutId, playerInId });
     db.addEvent({
       type: 'SUBSTITUTION',
       matchId: matchId!,
-      payload: { playerOutId, playerInId, minute: current.context.elapsedMs / 60000 }
+      payload: { playerOutId, playerInId, minute: (current.context?.elapsedMs || 0) / 60000 }
     });
     toast.success(t('match.substitutionMade'));
   };
   const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
-    const onField = players.filter(p => current.context.onField.has(p.id));
-    const onBench = players.filter(p => current.context.onBench.has(p.id));
+    const onFieldSet = current.context?.onField ?? new Set();
+    const onBenchSet = current.context?.onBench ?? new Set();
+    const onField = players.filter(p => onFieldSet.has(p.id));
+    const onBench = players.filter(p => onBenchSet.has(p.id));
     return [onField, onBench];
-  }, [players, current.context.onField, current.context.onBench]);
+  }, [players, current.context?.onField, current.context?.onBench]);
   const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
   if (!match) {
     return (
@@ -119,7 +121,7 @@ export function MatchPage() {
               <MatchClock durationMinutes={match.duration_minutes || 45} onTick={handleTick} onStatusChange={(status) => {
                 if (status === 'running' && !current.matches('running')) {
                   send({ type: 'START' });
-                  db.addEvent({ type: 'START', matchId: matchId!, payload: { initialLineup: Array.from(current.context.onField) } });
+                  db.addEvent({ type: 'START', matchId: matchId!, payload: { initialLineup: Array.from(current.context?.onField ?? new Set()) } });
                 }
                 if (status === 'paused') send({ type: 'PAUSE' });
                 if (status === 'stopped') {
