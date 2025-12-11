@@ -1,4 +1,4 @@
-import { createMachine, assign, fromCallback } from 'xstate';
+import { createMachine, assign } from 'xstate';
 import type { Player, MatchEvent } from '@shared/types';
 import db from './local-db';
 export interface MatchContext {
@@ -19,15 +19,17 @@ export type MatchMachineEvent =
   | { type: 'SUBSTITUTE'; playerOutId: string; playerInId: string }
   | { type: 'RESET'; context?: Partial<MatchContext> }
   | { type: 'RESUME_LINEUP'; context: { onField: Set<string>; onBench: Set<string>; status?: string } };
-const saveLineupEffect = fromCallback<MatchMachineEvent, { context: MatchContext, stateValue: any }>(({ input }) => {
-  if (input.context.matchId) {
-    db.setMeta(`activeMatchLineup_${input.context.matchId}`, {
-      onField: Array.from(input.context.onField),
-      onBench: Array.from(input.context.onBench),
-      status: input.stateValue,
-    });
-  }
-});
+const saveLineup = (status: string) =>
+  assign(( { context }: { context: MatchContext } ) => {
+    if (context.matchId) {
+      db.setMeta(`activeMatchLineup_${context.matchId}`, {
+        onField: Array.from(context.onField),
+        onBench: Array.from(context.onBench),
+        status: status,
+      });
+    }
+    return context;
+  });
 export const matchMachine = createMachine({
   id: 'match',
   types: {} as { context: MatchContext; events: MatchMachineEvent },
@@ -46,10 +48,7 @@ export const matchMachine = createMachine({
       on: {
         START: {
           target: 'running',
-          actions: {
-            type: saveLineupEffect,
-            params: ({ context }) => ({ context, stateValue: 'running' }),
-          },
+          actions: saveLineup('running'),
         },
       },
     },
@@ -57,17 +56,11 @@ export const matchMachine = createMachine({
       on: {
         PAUSE: {
           target: 'paused',
-          actions: {
-            type: saveLineupEffect,
-            params: ({ context }) => ({ context, stateValue: 'paused' }),
-          },
+          actions: saveLineup('paused'),
         },
         STOP: {
           target: 'stopped',
-          actions: {
-            type: saveLineupEffect,
-            params: ({ context }) => ({ context, stateValue: 'stopped' }),
-          },
+          actions: saveLineup('stopped'),
         },
         TICK: {
           actions: assign({
@@ -90,10 +83,7 @@ export const matchMachine = createMachine({
                 return newOnBench;
               },
             }),
-            {
-              type: saveLineupEffect,
-              params: ({ context }) => ({ context, stateValue: 'running' }),
-            },
+            saveLineup('running'),
           ],
         },
       },
@@ -102,17 +92,11 @@ export const matchMachine = createMachine({
       on: {
         RESUME: {
           target: 'running',
-          actions: {
-            type: saveLineupEffect,
-            params: ({ context }) => ({ context, stateValue: 'running' }),
-          },
+          actions: saveLineup('running'),
         },
         STOP: {
           target: 'stopped',
-          actions: {
-            type: saveLineupEffect,
-            params: ({ context }) => ({ context, stateValue: 'stopped' }),
-          },
+          actions: saveLineup('stopped'),
         },
       },
     },
@@ -146,7 +130,7 @@ export const matchMachine = createMachine({
     },
   },
 });
-export async function loadInitialContext(matchId?: string) {
+export async function loadInitialContext(matchId?: string): Promise<{ onField: Set<string>; onBench: Set<string>; status?: string }> {
   if (!matchId) return { onField: new Set<string>(), onBench: new Set<string>() };
   const lineup = await db.getMeta(`activeMatchLineup_${matchId}`);
   return lineup

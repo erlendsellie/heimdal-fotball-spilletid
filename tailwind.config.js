@@ -150,6 +150,7 @@ export default {
   		boxShadow: {
   			soft: '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
   			glow: '0 0 20px -5px rgba(229, 90, 27, 0.4)',
+        'glow-orange': '0 0 20px rgba(229,90,27,0.4)',
   			'glow-lg': '0 0 40px -10px rgba(229, 90, 27, 0.3)',
   			primary: '0 0 20px -5px hsl(var(--primary) / 0.4)',
   			glass: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
@@ -232,6 +233,7 @@ export default {
   			'scale-in': 'scale-in 0.3s ease-out',
   			shimmer: 'shimmer 2s infinite',
   			glow: 'glow 2s ease-in-out infinite',
+        'pulse-glow': 'glow 2s ease-in-out infinite',
   			float: 'float 3s ease-in-out infinite',
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out'
@@ -239,6 +241,7 @@ export default {
   		backgroundImage: {
   			'gradient-rainbow': 'linear-gradient(135deg, #E55A1B 0%, #0B3D91 50%, #E55A1B 100%)',
   			'gradient-primary': 'linear-gradient(135deg, #E55A1B, #D14615)',
+        'gradient-hero': 'linear-gradient(135deg, var(--heimdal-orange) 0%, var(--heimdal-navy) 100%)',
   			'gradient-mesh': 'radial-gradient(at 40% 20%, hsla(22,80%,50%,1) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(220,85%,30%,1) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(0,0%,100%,1) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(22,80%,50%,1) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(220,85%,30%,1) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(220,85%,30%,1) 0px, transparent 50%), radial-gradient(at 0% 0%, hsla(22,80%,50%,1) 0px, transparent 50%)'
   		}
   	}

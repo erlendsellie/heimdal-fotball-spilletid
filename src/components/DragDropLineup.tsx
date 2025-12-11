@@ -6,8 +6,9 @@ import type { Player } from '@shared/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users } from 'lucide-react';
 import { useTranslation } from '@/lib/translations';
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import db from '@/lib/local-db';
 function SortablePlayerItem({ id, player, minutesPlayed, isOnField, onSwapRequest }: { id: string; player: Player; minutesPlayed: number; isOnField: boolean; onSwapRequest: (id: string) => void; }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = {
@@ -34,28 +35,40 @@ export function DragDropLineup({ onFieldPlayers, onBenchPlayers, minutesPlayed, 
       },
     })
   );
-  const onFieldIds = onFieldPlayers.map(p => p.id);
-  const onBenchIds = onBenchPlayers.map(p => p.id);
-  const allPlayersMap = new Map([...onFieldPlayers, ...onBenchPlayers].map(p => [p.id, p]));
-  function handleDragStart(event: any) {
+  const { onFieldIds, onBenchIds, allPlayersMap } = useMemo(() => {
+    const onFieldIds = onFieldPlayers.map(p => p.id);
+    const onBenchIds = onBenchPlayers.map(p => p.id);
+    const allPlayersMap = new Map([...onFieldPlayers, ...onBenchPlayers].map(p => [p.id, p]));
+    return { onFieldIds, onBenchIds, allPlayersMap };
+  }, [onFieldPlayers, onBenchPlayers]);
+  const handleDragStart = useCallback((event: any) => {
     setActiveId(event.active.id);
-  }
-  function handleDragEnd(event: DragEndEvent) {
+  }, []);
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     setActiveId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const activeContainer = onFieldIds.includes(active.id as string) ? 'field' : 'bench';
     const overContainer = onFieldIds.includes(over.id as string) ? 'field' : 'bench';
     if (activeContainer !== overContainer) {
+      let playerOutId: string, playerInId: string;
       if (activeContainer === 'bench' && overContainer === 'field') {
-        // Bench player dragged over a field player -> swap
-        onLineupChange(over.id as string, active.id as string);
+        playerOutId = over.id as string;
+        playerInId = active.id as string;
       } else if (activeContainer === 'field' && overContainer === 'bench') {
-        // Field player dragged over a bench player -> swap
-        onLineupChange(active.id as string, over.id as string);
+        playerOutId = active.id as string;
+        playerInId = over.id as string;
+      } else {
+        return;
       }
+      onLineupChange(playerOutId, playerInId);
+      db.addEvent({
+        type: 'SUBSTITUTION',
+        matchId,
+        payload: { playerOutId, playerInId, minute: Date.now() / 60000 }
+      });
     }
-  }
+  }, [onFieldIds, onBenchIds, onLineupChange, matchId]);
   const activePlayer = activeId ? allPlayersMap.get(activeId) : null;
   const activeIsOnField = activeId ? onFieldIds.includes(activeId) : false;
   return (

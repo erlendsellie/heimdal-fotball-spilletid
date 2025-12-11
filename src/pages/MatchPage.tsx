@@ -14,6 +14,8 @@ import { suggestSwaps } from '@/lib/substitutionSuggestions';
 import { Navigation } from '@/components/Navigation';
 import { useTranslation } from '@/lib/translations';
 import db from '@/lib/local-db';
+import { useDebounce } from 'react-use';
+import { runSync } from '@/lib/sync';
 export function MatchPage() {
   const { t } = useTranslation();
   const { matchId } = useParams<{ matchId: string }>();
@@ -22,9 +24,10 @@ export function MatchPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [minutesPlayed, setMinutesPlayed] = useState<Record<string, number>>({});
   const [current, send] = useMachine(matchMachine);
+  useDebounce(runSync, 5000, [minutesPlayed]);
   const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
-    const onFieldSet = current.context?.onField ?? new Set<string>();
-    const onBenchSet = current.context?.onBench ?? new Set<string>();
+    const onFieldSet = (current.context?.onField as Set<string>) ?? new Set<string>();
+    const onBenchSet = (current.context?.onBench as Set<string>) ?? new Set<string>();
     const onField = players.filter(p => onFieldSet.has(p.id));
     const onBench = players.filter(p => onBenchSet.has(p.id));
     return [onField, onBench];
@@ -50,8 +53,8 @@ export function MatchPage() {
       setPlayers(playersData);
       setMinutesPlayed(matchConfig.deficits || {});
       const initialContext = await loadInitialContext(matchId);
-      const initialOnField = initialContext.onField.size > 0 ? initialContext.onField : new Set(matchConfig.lineup);
-      const initialOnBench = initialContext.onBench.size > 0 ? initialContext.onBench : new Set(playersData.filter(p => !initialOnField.has(p.id)).map(p => p.id));
+      const initialOnField = initialContext.onField.size > 0 ? initialContext.onField : new Set<string>(matchConfig.lineup);
+      const initialOnBench = initialContext.onBench.size > 0 ? initialContext.onBench : new Set<string>(playersData.filter(p => !initialOnField.has(p.id)).map(p => p.id));
       send({
         type: 'RESET',
         context: {
@@ -98,11 +101,6 @@ export function MatchPage() {
   }, [current.context?.onField]);
   const handleLineupChange = (playerOutId: string, playerInId: string) => {
     send({ type: 'SUBSTITUTE', playerOutId, playerInId });
-    db.addEvent({
-      type: 'SUBSTITUTION',
-      matchId: matchId!,
-      payload: { playerOutId, playerInId, minute: (current.context?.elapsedMs || 0) / 60000 }
-    });
     toast.success(t('match.substitutionMade'));
   };
   const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
@@ -152,6 +150,7 @@ export function MatchPage() {
                 minutesPlayed={minutesPlayed}
                 onLineupChange={handleLineupChange}
                 teamSize={match.teamSize}
+                matchId={matchId}
               />
               <Card className="bg-gradient-to-r from-heimdal-orange/5 to-heimdal-navy/5">
                 <CardHeader>
