@@ -2,7 +2,7 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { v4 as uuidv4 } from 'uuid';
 import type { Player, Match, MatchEvent } from '@shared/types';
 const DB_NAME = 'heimdal-spilletid-db';
-const DB_VERSION = 2; // Version remains 2 as schema is compatible
+const DB_VERSION = 2;
 interface HeimdalDB extends DBSchema {
   matches: { key: string; value: Match; };
   players: { key: string; value: Player; indexes: { teamId: string }; };
@@ -111,11 +111,30 @@ export const db = {
     return result ? result.value : undefined;
   },
   async setMeta(key: string, value: any): Promise<void> {
-    const tx = (await getDb()).transaction('meta', 'readwrite');
-    await Promise.all([tx.store.put({ key, value }), tx.done]);
+    if (value && typeof value === 'object') {
+      const safeValue = { ...value };
+      if ('elapsedMs' in safeValue && !Number.isFinite(safeValue.elapsedMs)) {
+        safeValue.elapsedMs = 0;
+      }
+      if ('startTime' in safeValue && !Number.isFinite(safeValue.startTime)) {
+        safeValue.startTime = Date.now();
+      }
+      const tx = (await getDb()).transaction('meta', 'readwrite');
+      await Promise.all([tx.store.put({ key, value: safeValue }), tx.done]);
+    } else {
+      const tx = (await getDb()).transaction('meta', 'readwrite');
+      await Promise.all([tx.store.put({ key, value }), tx.done]);
+    }
   },
   async getActiveMatch(): Promise<any> {
-    return await this.getMeta('activeMatch');
+    const result = await this.getMeta('activeMatch');
+    if (!result) return null;
+    return {
+      ...result,
+      elapsedMs: Number.isFinite(result.elapsedMs) ? result.elapsedMs : 0,
+      startTime: Number.isFinite(result.startTime) ? result.startTime : Date.now(),
+      lineup: Array.isArray(result.lineup) ? new Set(result.lineup) : new Set(),
+    };
   },
   async getPreviousMinutes(): Promise<Record<string, number>> {
     return (await this.getMeta('lastSessionMinutes')) || {};

@@ -14,6 +14,7 @@ import { TeamPage } from '@/pages/TeamPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { TournamentPage } from '@/pages/TournamentPage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
 // Mock dependencies
 vi.mock('@/lib/local-db', () => ({
   default: {

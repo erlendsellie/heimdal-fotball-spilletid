@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Square, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+import { cn, formatTime } from '@/lib/utils';
 import db from '@/lib/local-db';
 import { useTranslation } from '@/lib/translations';
 export type ClockStatus = 'stopped' | 'running' | 'paused';
@@ -13,14 +13,9 @@ interface MatchClockProps {
   durationMinutes: number;
   onTick?: (elapsedMs: number) => void;
   onStatusChange?: (status: ClockStatus, elapsedMs: number) => void;
+  onActiveMatchSave?: (data: { status: ClockStatus; elapsedMs: number; startTime: number }) => void;
 }
-const formatTime = (ms: number) => {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-};
-export function MatchClock({ matchId, initialTimeMs = 0, durationMinutes, onTick, onStatusChange }: MatchClockProps) {
+export function MatchClock({ matchId, initialTimeMs = 0, durationMinutes, onTick, onStatusChange, onActiveMatchSave }: MatchClockProps) {
   const { t } = useTranslation();
   const [elapsedMs, setElapsedMs] = useState(initialTimeMs);
   const [status, setStatus] = useState<ClockStatus>('stopped');
@@ -38,20 +33,20 @@ export function MatchClock({ matchId, initialTimeMs = 0, durationMinutes, onTick
     const loadState = async () => {
       const savedState = await db.getMeta(`activeMatchClock_${matchId}`);
       if (savedState) {
-        // Coerce elapsedMs to a finite number, default to 0 if invalid
         let newElapsedMs = Number(savedState.elapsedMs);
         if (!Number.isFinite(newElapsedMs)) newElapsedMs = 0;
-
-        // Only compute drift if anchor is a finite number
         if (savedState.status === 'running' && Number.isFinite(Number(savedState.anchor))) {
           const drift = Date.now() - Number(savedState.anchor);
           newElapsedMs += drift;
+          const resumeStartTime = Date.now() - newElapsedMs;
+          await db.setMeta(`activeMatchClock_${matchId}`, { status: 'running', elapsedMs: newElapsedMs, anchor: resumeStartTime });
         }
-
-        // Clamp to valid range [0, durationMs]
         const clampedElapsed = Math.min(Math.max(newElapsedMs, 0), durationMs);
-
-        setElapsedMs(clampedElapsed);
+        if (!Number.isFinite(clampedElapsed)) {
+            setElapsedMs(0);
+        } else {
+            setElapsedMs(clampedElapsed);
+        }
         setStatus(savedState.status);
         if (onStatusChange) onStatusChange(savedState.status, clampedElapsed);
       }
@@ -99,8 +94,10 @@ export function MatchClock({ matchId, initialTimeMs = 0, durationMinutes, onTick
       setElapsedMs(finalElapsed);
     }
     setStatus(newStatus);
+    const saveData = { status: newStatus, elapsedMs: finalElapsed, startTime: Date.now() - finalElapsed };
     saveState(newStatus, finalElapsed);
     if (onStatusChange) onStatusChange(newStatus, finalElapsed);
+    if (onActiveMatchSave) onActiveMatchSave(saveData);
   };
   const progress = (elapsedMs / durationMs) * 100;
   return (

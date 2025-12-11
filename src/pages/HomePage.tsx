@@ -36,54 +36,24 @@ function ActiveMatchCard({ activeMatch }: { activeMatch: any }) {
   const [liveElapsed, setLiveElapsed] = useState(activeMatch.elapsedMs || 0);
   useEffect(() => {
     let intervalId: number | undefined;
-    let cancelled = false;
-
-    const setupClock = async () => {
-      if (!activeMatch) return;
-      const maxMs = (activeMatch.duration || 45) * 60 * 1000;
-      // Try to load persisted clock for this active match
-      const savedClock = await db.getMeta(`activeMatchClock_${activeMatch.id}`);
-      // Determine base elapsed and anchor
-      let baseElapsed = 0;
-      let anchor: number | null = null;
-
-      if (savedClock) {
-        baseElapsed = typeof savedClock.elapsedMs === 'number' ? savedClock.elapsedMs : 0;
-        if (savedClock.status === 'running' && Number.isFinite(savedClock.anchor)) {
-          anchor = savedClock.anchor;
-        }
-      } else {
-        // Fallback to activeMatch data if no saved clock exists
-        baseElapsed = typeof activeMatch.elapsedMs === 'number' ? activeMatch.elapsedMs : 0;
-        if (activeMatch.status === 'running') {
-          anchor = Date.now();
-        }
-      }
-
-      // Initialize displayed elapsed time
-      const computeElapsed = () => {
-        const now = Date.now();
-        const elapsed = anchor ? baseElapsed + (now - anchor) : baseElapsed;
-        return Math.min(elapsed, maxMs);
-      };
-      if (!cancelled) {
-        setLiveElapsed(computeElapsed());
-      }
-
+    if (!activeMatch) return;
+    const startTime = activeMatch.startTime || (Date.now() - (activeMatch.elapsedMs || 0));
+    const maxMs = (activeMatch.duration || 45) * 60 * 1000;
+    const computeElapsed = () => {
       if (activeMatch.status === 'running') {
-        intervalId = window.setInterval(() => {
-          if (cancelled) return;
-          setLiveElapsed(computeElapsed());
-        }, 1000) as unknown as number;
+        return Math.min(activeMatch.elapsedMs + (Date.now() - startTime), maxMs);
       }
+      return activeMatch.elapsedMs;
     };
-
-    setupClock();
-
+    setLiveElapsed(computeElapsed());
+    if (activeMatch.status === 'running') {
+      intervalId = window.setInterval(() => {
+        setLiveElapsed(computeElapsed());
+      }, 1000);
+    }
     return () => {
-      cancelled = true;
-      if (typeof intervalId !== 'undefined') {
-        window.clearInterval(intervalId);
+      if (intervalId) {
+        clearInterval(intervalId);
       }
     };
   }, [activeMatch]);
@@ -100,7 +70,9 @@ function ActiveMatchCard({ activeMatch }: { activeMatch: any }) {
           <CardDescription>{t('home.activeMatchDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-5xl font-mono font-bold text-foreground">{formatTime(liveElapsed)}</div>
+          <div className="text-5xl font-mono font-bold text-foreground">
+            {formatTime(liveElapsed)}
+          </div>
           <Button onClick={() => navigate(`/match/${activeMatch.id}`)} className="bg-heimdal-orange hover:bg-heimdal-navy text-white h-12 px-8 text-lg">
             {t('home.fortsettKamp')}
           </Button>
@@ -135,7 +107,7 @@ export function HomePage() {
   }, [teamSize]);
   const handleStartMatch = async () => {
     if (duration < 5 || duration > 60) {
-      toast.error('Varighet må være mellom 5 og 60 minutter.');
+      toast.error(t('home.invalidDuration'));
       return;
     }
     if (selectedPlayerIds.length < teamSize) {
@@ -208,7 +180,7 @@ export function HomePage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="duration">{t('home.duration')}</Label>
-                          <Input id="duration" type="number" value={duration} onChange={(e) => setDuration(parseInt(e.target.value, 10))} min="5" max="60" />
+                          <Input id="duration" type="number" value={duration} onChange={(e) => setDuration(parseInt(e.target.value, 10) || 15)} min="5" max="60" />
                           <p className="text-sm text-muted-foreground">{t('home.spilletid15min')}</p>
                         </div>
                         <div className="space-y-4">
