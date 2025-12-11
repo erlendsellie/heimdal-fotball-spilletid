@@ -129,7 +129,7 @@ export function TeamPage() {
                         <FormItem><FormLabel>{t('team.name')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="number" render={({ field }) => (
-                        <FormItem><FormLabel>{t('team.number')}</FormLabel><FormControl><Input type="number" {...field} value={field.value || ''} onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>{t('team.number')}</FormLabel><FormControl><Input type="number" {...field} value={field.value !== undefined && field.value !== null ? String(field.value) : ''} onChange={(e) => { field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10)); }} /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="position" render={({ field }) => (
                         <FormItem><FormLabel>{t('team.position')}</FormLabel>
@@ -145,7 +145,7 @@ export function TeamPage() {
                         </FormItem>
                       )} />
                       <FormField control={form.control} name="age" render={({ field }) => (
-                        <FormItem><FormLabel>{t('team.age')}</FormLabel><FormControl><Input type="number" {...field} value={field.value || ''} onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>{t('team.age')}</FormLabel><FormControl><Input type="number" {...field} value={field.value !== undefined && field.value !== null ? String(field.value) : ''} onChange={(e) => { field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10)); }} /></FormControl><FormMessage /></FormItem>
                       )} />
                       <Button type="submit">{t('team.save')}</Button>
                     </form>
