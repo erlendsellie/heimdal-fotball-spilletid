@@ -27,24 +27,66 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return ok(c, { seeded: true });
     } catch (e) {
       console.error('Seed error:', e);
-      return c.json({ success: false, error: 'Server error during seeding' }, 500);
+      // Provide a more helpful message when Durable Objects / DO operations fail
+      const detail = e instanceof Error ? e.message : String(e);
+      return c.json({ success: false, error: 'Server error during seeding', detail }, 500);
     }
   });
   app.post('/api/auth/login', async (c) => {
     try {
       const { email, password } = await c.req.json<{ email?: string, password?: string }>();
       if (!isStr(email) || !isStr(password)) return bad(c, 'Email and password required');
-      let userEntity = await UserEntity.findByEmail(c.env, email);
+
+      // Attempt to find user via Durable Object; if DO fails, fall back to in-memory MOCK_USERS
+      let userEntity: any;
+      try {
+        userEntity = await UserEntity.findByEmail(c.env, email);
+      } catch (doFindErr) {
+        console.error('UserEntity.findByEmail failed, falling back to MOCK_USERS:', doFindErr);
+        userEntity = undefined;
+      }
+
       if (!userEntity) {
         const mock = MOCK_USERS.find(u => u.email === email);
         if (mock) {
           const demoUser: User = { ...mock, id: email };
-          await UserEntity.create(c.env, demoUser);
-          userEntity = await UserEntity.findByEmail(c.env, email);
+          try {
+            // Try to create DO entry for demo user, but if that fails allow fallback
+            await UserEntity.create(c.env, demoUser);
+            userEntity = await UserEntity.findByEmail(c.env, email);
+          } catch (createErr) {
+            console.error('UserEntity.create failed for demo user, continuing with in-memory mock:', createErr);
+            // Fallback: allow login using in-memory mock user
+            const pwdHashOrPwd: any = (demoUser as any).passwordHash ?? (demoUser as any).password;
+            if (pwdHashOrPwd !== password) {
+              return c.json({ success: false, error: 'Invalid credentials' }, 401);
+            }
+            const { passwordHash, ...userSafe } = demoUser as any;
+            return ok(c, { token: DUMMY_TOKEN, user: userSafe });
+          }
         }
       }
+
       if (!userEntity) return notFound(c, 'User not found');
-      const user = await userEntity.getState();
+
+      // Retrieve state from DO; if that fails, try MOCK_USERS as last resort
+      let user: any;
+      try {
+        user = await userEntity.getState();
+      } catch (getStateErr) {
+        console.error('userEntity.getState failed, falling back to MOCK_USERS if available:', getStateErr);
+        const mock = MOCK_USERS.find(u => u.email === email);
+        if (mock) {
+          const pwdHashOrPwd: any = (mock as any).passwordHash ?? (mock as any).password;
+          if (pwdHashOrPwd !== password) {
+            return c.json({ success: false, error: 'Invalid credentials' }, 401);
+          }
+          const { passwordHash, ...userSafe } = { ...mock, id: email } as any;
+          return ok(c, { token: DUMMY_TOKEN, user: userSafe });
+        }
+        return c.json({ success: false, error: 'Server error during login' }, 500);
+      }
+
       if (user.passwordHash !== password) {
         return c.json({ success: false, error: 'Invalid credentials' }, 401);
       }
