@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import db from '@/lib/local-db';
 import { useTranslation } from '@/lib/translations';
-type ClockStatus = 'stopped' | 'running' | 'paused';
+export type ClockStatus = 'stopped' | 'running' | 'paused';
 interface MatchClockProps {
   matchId: string;
   initialTimeMs?: number;
@@ -59,8 +59,8 @@ export function MatchClock({ matchId, initialTimeMs = 0, durationMinutes, onTick
       if (onTick) onTick(newTime);
       if (newTime >= durationMs) {
         setStatus('stopped');
-        if (onStatusChange) onStatusChange('stopped', newTime);
-        saveState('stopped', newTime);
+        if (onStatusChange) onStatusChange('stopped', durationMs);
+        saveState('stopped', durationMs);
         cancelAnimationFrame(rafRef.current);
       }
       return newTime;
@@ -86,11 +86,7 @@ export function MatchClock({ matchId, initialTimeMs = 0, durationMinutes, onTick
   }, [status, elapsedMs, saveState]);
   const handleStatusChange = (newStatus: ClockStatus) => {
     let finalElapsed = elapsedMs;
-    if (newStatus === 'stopped' && elapsedMs < durationMs) {
-      finalElapsed = durationMs;
-      setElapsedMs(finalElapsed);
-    }
-    if (newStatus === 'stopped' && elapsedMs >= durationMs) {
+    if (newStatus === 'stopped') {
       finalElapsed = 0;
       setElapsedMs(finalElapsed);
     }
@@ -114,16 +110,21 @@ export function MatchClock({ matchId, initialTimeMs = 0, durationMinutes, onTick
             {formatTime(durationMs)}
           </div>
           <div className="flex justify-center gap-2 mt-6">
-            {status !== 'running' && (
-              <Button size="lg" onClick={() => handleStatusChange('running')} className="w-28 bg-green-600 hover:bg-green-700 text-white">
-                <Play className="mr-2 h-5 w-5" /> {status === 'paused' ? t('match.resume') : t('match.start')}
-              </Button>
-            )}
-            {status === 'running' && (
-              <Button size="lg" onClick={() => handleStatusChange('paused')} className="w-28 bg-yellow-500 hover:bg-yellow-600 text-white">
-                <Pause className="mr-2 h-5 w-5" /> {t('match.pause')}
-              </Button>
-            )}
+            <AnimatePresence mode="wait">
+              {status !== 'running' ? (
+                <motion.div key="play" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}>
+                  <Button size="lg" onClick={() => handleStatusChange('running')} className="w-28 bg-green-600 hover:bg-green-700 text-white">
+                    <Play className="mr-2 h-5 w-5" /> {status === 'paused' ? t('match.resume') : t('match.start')}
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.div key="pause" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}>
+                  <Button size="lg" onClick={() => handleStatusChange('paused')} className="w-28 bg-yellow-500 hover:bg-yellow-600 text-white">
+                    <Pause className="mr-2 h-5 w-5" /> {t('match.pause')}
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <Button size="lg" variant="destructive" onClick={() => handleStatusChange('stopped')} className="w-28">
               <Square className="mr-2 h-5 w-5" /> {t('match.stop')}
             </Button>

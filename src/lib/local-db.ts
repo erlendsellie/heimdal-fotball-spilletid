@@ -46,7 +46,8 @@ export const db = {
     return (await getDb()).getAll('matches');
   },
   async saveMatch(match: Match): Promise<void> {
-    await (await getDb()).put('matches', match);
+    const tx = (await getDb()).transaction('matches', 'readwrite');
+    await Promise.all([tx.store.put(match), tx.done]);
   },
   async saveAllMatches(matches: Match[]): Promise<void> {
     const tx = (await getDb()).transaction('matches', 'readwrite');
@@ -56,14 +57,16 @@ export const db = {
     return (await getDb()).getAllFromIndex('players', 'teamId', teamId);
   },
   async savePlayer(player: Player): Promise<void> {
-    await (await getDb()).put('players', player);
+    const tx = (await getDb()).transaction('players', 'readwrite');
+    await Promise.all([tx.store.put(player), tx.done]);
   },
   async savePlayers(players: Player[]): Promise<void> {
     const tx = (await getDb()).transaction('players', 'readwrite');
     await Promise.all([...players.map(p => tx.store.put(p)), tx.done]);
   },
   async deletePlayer(playerId: string): Promise<void> {
-    await (await getDb()).delete('players', playerId);
+    const tx = (await getDb()).transaction('players', 'readwrite');
+    await Promise.all([tx.store.delete(playerId), tx.done]);
   },
   async addEvent(eventPayload: Omit<MatchEvent, 'id' | 'ts' | 'synced'>): Promise<MatchEvent> {
     const db = await getDb();
@@ -73,7 +76,8 @@ export const db = {
       ts: Date.now(),
       synced: false,
     };
-    await db.add('oplog', event);
+    const tx = db.transaction('oplog', 'readwrite');
+    await Promise.all([tx.store.add(event), tx.done]);
     return event;
   },
   async getUnsyncedEvents(): Promise<MatchEvent[]> {
@@ -96,8 +100,7 @@ export const db = {
       const eventsToKeep = allEvents.filter(e => !e.synced);
       const tx = db.transaction('oplog', 'readwrite');
       await tx.store.clear();
-      await Promise.all(eventsToKeep.map(e => tx.store.put(e)));
-      await tx.done;
+      await Promise.all([...eventsToKeep.map(e => tx.store.put(e)), tx.done]);
       console.log(`Oplog compacted. Kept ${eventsToKeep.length} unsynced events.`);
     } catch (error) {
       console.error("Failed to compact oplog:", error);
@@ -108,7 +111,11 @@ export const db = {
     return result ? result.value : undefined;
   },
   async setMeta(key: string, value: any): Promise<void> {
-    await (await getDb()).put('meta', { key, value });
+    const tx = (await getDb()).transaction('meta', 'readwrite');
+    await Promise.all([tx.store.put({ key, value }), tx.done]);
+  },
+  async getActiveMatch(): Promise<any> {
+    return await this.getMeta('activeMatch');
   },
   async getPreviousMinutes(): Promise<Record<string, number>> {
     return (await this.getMeta('lastSessionMinutes')) || {};

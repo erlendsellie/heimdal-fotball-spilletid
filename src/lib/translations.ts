@@ -43,6 +43,13 @@ const translations = {
       lineupSelect: 'Velg startoppstilling (velg {{size}} spillere)',
       durationSlider: 'Kamp lengde (minutter)',
       startConfirm: 'Start!',
+      standard3v3: 'Standard: 3v3',
+      spilletid15min: 'Spilletid: 15 min',
+      paaagaendeKamp: 'Pågående: Fortsett Kamp',
+      fortsettKamp: 'Gjenoppta',
+      activeMatch: 'Aktiv kamp',
+      activeMatchDesc: 'En kamp er allerede i gang.',
+      resume: 'Gjenoppta',
     },
     login: {
       title: 'Trener Innlogging',
@@ -75,6 +82,7 @@ const translations = {
       pause: 'Pause',
       resume: 'Gjenoppta',
       stop: 'Stopp',
+      timePlayed: '{{time}} spilt',
     },
     team: {
       title: 'Lag & Spillere',
@@ -152,6 +160,13 @@ const translations = {
       lineupSelect: 'Select Starting Lineup (choose {{size}} players)',
       durationSlider: 'Match Length (minutes)',
       startConfirm: 'Start!',
+      standard3v3: 'Default: 3v3',
+      spilletid15min: 'Playtime: 15 min',
+      paaagaendeKamp: 'Active Match: Resume Game',
+      fortsettKamp: 'Resume',
+      activeMatch: 'Active Match',
+      activeMatchDesc: 'A match is already in progress.',
+      resume: 'Resume',
     },
     login: {
       title: 'Coach Login',
@@ -184,6 +199,7 @@ const translations = {
       pause: 'Pause',
       resume: 'Resume',
       stop: 'Stop',
+      timePlayed: '{{time}} played',
     },
     team: {
       title: 'Team & Players',

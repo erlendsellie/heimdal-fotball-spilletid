@@ -27,6 +27,7 @@ vi.mock('@/lib/local-db', () => ({
     getAllMatches: vi.fn().mockResolvedValue([]),
     getTournamentMinutes: vi.fn().mockResolvedValue({}),
     getUnsyncedEvents: vi.fn().mockResolvedValue([]),
+    getActiveMatch: vi.fn().mockResolvedValue(null),
   },
 }));
 vi.mock('@/lib/auth', () => ({
@@ -66,7 +67,7 @@ describe('Full User Flow E2E Simulation', () => {
     expect(auth.login).toHaveBeenCalledWith('trener@heimdal.no', 'password123');
   });
   it('creates a new match from the homepage', async () => {
-    const { db } = await import('@/lib/local-db');
+    const { default: db } = await import('@/lib/local-db');
     render(<AllProviders><HomePage /></AllProviders>);
     await userEvent.click(screen.getByRole('button', { name: /start ny kamp/i }));
     // Sheet opens
@@ -78,7 +79,7 @@ describe('Full User Flow E2E Simulation', () => {
     expect(db.setMeta).toHaveBeenCalledWith('newMatchConfig', expect.any(Object));
   });
   it('handles substitutions on the match page', async () => {
-    const { db } = await import('@/lib/local-db');
+    const { default: db } = await import('@/lib/local-db');
     // Mock the config that should have been set by HomePage
     vi.mocked(db.getMeta).mockResolvedValue({
       id: 'test-match-id',
@@ -95,7 +96,7 @@ describe('Full User Flow E2E Simulation', () => {
     // Here we'll check if the suggestion button works.
     const suggestionButton = await screen.findByRole('button', { name: /bytt/i });
     await userEvent.click(suggestionButton);
-    expect(await screen.findByText(/bytte utf��rt/i)).toBeInTheDocument();
+    expect(await screen.findByText(/bytte utført/i)).toBeInTheDocument();
   });
   it('exports data from the settings page', async () => {
     // Mock Papa.unparse to check if it's called
