@@ -29,7 +29,7 @@ export interface Player {
   name: string;
   number: number;
   position: 'Goalkeeper' | 'Defense' | 'Midfield' | 'Forward';
-  // metadata?: Record<string, any>;
+  age?: number;
 }
 export interface Match {
   id: string;
@@ -38,7 +38,7 @@ export interface Match {
   duration_minutes: number;
   status: 'Klar' | 'Pågående' | 'Fullført';
   events: MatchEvent[];
-  // start_time?: number;
+  teamSize?: number;
 }
 export type MatchEventType = 'START' | 'PAUSE' | 'RESUME' | 'STOP' | 'SUBSTITUTION';
 export interface MatchEvent {
@@ -53,13 +53,5 @@ export interface SubstitutionPayload {
   playerOutId: string;
   playerInId: string;
   minute: number;
-}
-export interface Tournament {
-  id: string;
-  name: string;
-  matchIds: string[];
-  carryover_rules: {
-    enabled: boolean;
-    compensationMinutes?: number;
-  };
+  teamSize?: number;
 }

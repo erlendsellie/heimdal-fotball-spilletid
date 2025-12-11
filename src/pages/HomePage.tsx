@@ -1,15 +1,40 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Toaster } from '@/components/ui/sonner';
-import { MOCK_MATCHES } from '@shared/mock-data';
+import { Toaster, toast } from '@/components/ui/sonner';
 import { Navigation } from '@/components/Navigation';
 import { useTranslation } from '@/lib/translations';
+import db from '@/lib/local-db';
 export function HomePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [teamSize, setTeamSize] = useState(7);
+  const [duration, setDuration] = useState(45);
+  const [carryover, setCarryover] = useState(false);
+  const handleStartMatch = async () => {
+    if (duration < 1 || duration > 120) {
+      toast.error('Duration must be between 1 and 120 minutes.');
+      return;
+    }
+    const matchId = uuidv4();
+    const matchConfig = {
+      id: matchId,
+      teamSize,
+      duration,
+      carryover,
+      opponent: 'Motstander', // Placeholder
+    };
+    await db.setMeta('newMatchConfig', matchConfig);
+    navigate(`/match/${matchId}`);
+  };
   return (
     <>
       <ThemeToggle className="fixed top-4 right-4 z-50" />
@@ -38,45 +63,47 @@ export function HomePage() {
                   {t('home.description')}
                 </p>
               </motion.div>
-              <div className="mt-24 md:mt-32">
-                <div className="flex justify-between items-center mb-8">
-                  <h3 className="text-3xl font-bold">{t('home.upcomingMatches')}</h3>
-                  <Button variant="ghost" asChild>
-                    <Link to="/tournament">
-                      {t('home.viewAll')} <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {MOCK_MATCHES.map((match, i) => (
-                    <motion.div
-                      key={match.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: i * 0.1 }}
-                    >
-                      <Card className="h-full flex flex-col transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
-                        <CardHeader>
-                          <CardTitle className="text-xl">Heimdal {t('match.opponent')} {match.opponent}</CardTitle>
-                          <CardDescription>{new Date().toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' })}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex-grow">
-                          <p className="text-sm text-muted-foreground">
-                            {match.duration_minutes} minutter �� {match.status}
-                          </p>
-                        </CardContent>
-                        <CardFooter>
-                          <Button asChild className="w-full bg-heimdal-orange hover:bg-heimdal-navy text-white">
-                            <Link to={`/match/${match.id}`} aria-label={`${t('home.openMatch')} for Heimdal vs ${match.opponent}`}>
-                              {t('home.openMatch')} <ArrowRight className="ml-2 h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="mt-16 md:mt-24"
+              >
+                <Card className="max-w-2xl mx-auto bg-gradient-to-r from-heimdal-orange/5 to-heimdal-navy/5 shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="text-2xl font-bold">{t('home.createMatch')}</CardTitle>
+                    <CardDescription>{t('match.carryoverInfo')}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="team-size">{t('home.teamSize')}</Label>
+                        <Select value={String(teamSize)} onValueChange={(val) => setTeamSize(Number(val))}>
+                          <SelectTrigger id="team-size">
+                            <SelectValue placeholder="Select team size" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 9 }, (_, i) => i + 3).map(size => (
+                              <SelectItem key={size} value={String(size)}>{size}v{size}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="duration">{t('home.duration')}</Label>
+                        <Input id="duration" type="number" value={duration} onChange={(e) => setDuration(Number(e.target.value))} min="1" max="120" />
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch id="carryover" checked={carryover} onCheckedChange={setCarryover} />
+                      <Label htmlFor="carryover">{t('home.carryover')}</Label>
+                    </div>
+                    <Button onClick={handleStartMatch} size="lg" className="w-full bg-heimdal-orange hover:bg-heimdal-navy text-white text-lg font-semibold">
+                      {t('home.startMatch')}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
             </div>
           </div>
         </main>

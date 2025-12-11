@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { interpolateT } from './utils';
 type Language = 'nb' | 'en';
 interface TranslationState {
   language: Language;
@@ -33,9 +34,11 @@ const translations = {
       heroTitle: 'Heimdal Fotball',
       subtitle: 'Spilletid & Bytte-verktøy',
       description: 'Kontroller og følg spilletid for hver spiller i sanntid. Fungerer offline, med smarte forslag til bytter.',
-      upcomingMatches: 'Kommende Kamper',
-      viewAll: 'Se alle',
-      openMatch: 'Åpne Kamp',
+      createMatch: 'Ny Kamp',
+      teamSize: 'Antall p�� Banen',
+      duration: 'Varighet (minutter)',
+      carryover: 'Bruk Tid fra Forrige Kamp?',
+      startMatch: 'Start Kamp',
     },
     login: {
       title: 'Trener Innlogging',
@@ -50,36 +53,36 @@ const translations = {
     match: {
       liveTitle: 'Live Kamp',
       opponent: 'mot',
-      start: 'Start',
-      pause: 'Pause',
-      resume: 'Fortsett',
-      stop: 'Stopp',
       substitute: 'Bytt',
       suggestionsTitle: 'Bytteforslag',
-      reasonEven: 'Jevn spilletid',
       onField: 'På Banen',
       onBench: 'På Benken',
       substitutionMade: 'Bytte utført!',
       loading: 'Laster kamp...',
       noSuggestions: 'Ingen forslag tilgjengelig.',
-    },
-    tournament: {
-      title: 'Turneringer',
-      description: 'Administrer lagets turneringer og se samlet statistikk.',
-      new: 'Ny Turnering',
-      createTitle: 'Opprett Ny Turnering',
-      name: 'Navn',
-      carryover: 'Aktiver Kompensasjonsregler',
-      create: 'Opprett',
-      viewDetails: 'Vis Detaljer',
-      created: 'Turnering opprettet! (Ikke implementert)',
+      deficit: 'Start-differanse: {{min}} min',
+      teamSizeDisplay: '{{size}}v{{size}} Kamp',
+      carryoverInfo: 'Spillere under snittet fra forrige kamp starter med en tids-differanse.',
     },
     team: {
       title: 'Lag & Spillere',
       description: 'Administrer lagets spillere.',
       addTitle: 'Legg Til Ny Spiller',
+      editTitle: 'Rediger Spiller',
       searchPlaceholder: 'Søk spillere...',
-      added: 'Spiller lagt til! (Ikke implementert)',
+      added: 'Spiller lagt til!',
+      updated: 'Spiller oppdatert!',
+      deleted: 'Spiller slettet!',
+      name: 'Navn',
+      number: 'Nummer',
+      position: 'Posisjon',
+      age: 'Alder (valgfri)',
+      uniqueNumber: 'Nummer må være unikt for laget.',
+      deleteConfirmTitle: 'Er du sikker?',
+      deleteConfirmDesc: 'Denne handlingen kan ikke angres. Spilleren vil bli permanent slettet.',
+      cancel: 'Avbryt',
+      delete: 'Slett',
+      save: 'Lagre',
     },
     positions: {
       forward: 'Angriper',
@@ -119,9 +122,11 @@ const translations = {
       heroTitle: 'Heimdal Football',
       subtitle: 'Playtime & Substitution Tool',
       description: 'Control and track playing time for each player in real-time. Works offline, with smart substitution suggestions.',
-      upcomingMatches: 'Upcoming Matches',
-      viewAll: 'View all',
-      openMatch: 'Open Match',
+      createMatch: 'New Match',
+      teamSize: 'Players on Field',
+      duration: 'Duration (minutes)',
+      carryover: 'Carry Over Time From Last Match?',
+      startMatch: 'Start Match',
     },
     login: {
       title: 'Coach Login',
@@ -136,36 +141,36 @@ const translations = {
     match: {
       liveTitle: 'Live Match',
       opponent: 'vs.',
-      start: 'Start',
-      pause: 'Pause',
-      resume: 'Resume',
-      stop: 'Stop',
       substitute: 'Substitute',
       suggestionsTitle: 'Substitution Suggestions',
-      reasonEven: 'Even playing time',
       onField: 'On Field',
       onBench: 'On Bench',
       substitutionMade: 'Substitution made!',
       loading: 'Loading match...',
       noSuggestions: 'No suggestions available.',
-    },
-    tournament: {
-      title: 'Tournaments',
-      description: "Manage your team's tournaments and view aggregate statistics.",
-      new: 'New Tournament',
-      createTitle: 'Create New Tournament',
-      name: 'Name',
-      carryover: 'Enable Carryover Rules',
-      create: 'Create',
-      viewDetails: 'View Details',
-      created: 'Tournament created! (Not implemented)',
+      deficit: 'Start Deficit: {{min}} min',
+      teamSizeDisplay: '{{size}}v{{size}} Match',
+      carryoverInfo: 'Players below average from the last match start with a time deficit.',
     },
     team: {
       title: 'Team & Players',
       description: 'Manage your team roster.',
       addTitle: 'Add New Player',
+      editTitle: 'Edit Player',
       searchPlaceholder: 'Search players...',
-      added: 'Player added! (Not implemented)',
+      added: 'Player added!',
+      updated: 'Player updated!',
+      deleted: 'Player deleted!',
+      name: 'Name',
+      number: 'Number',
+      position: 'Position',
+      age: 'Age (optional)',
+      uniqueNumber: 'Number must be unique for the team.',
+      deleteConfirmTitle: 'Are you sure?',
+      deleteConfirmDesc: 'This action cannot be undone. The player will be permanently deleted.',
+      cancel: 'Cancel',
+      delete: 'Delete',
+      save: 'Save',
     },
     positions: {
       forward: 'Forward',
@@ -196,7 +201,7 @@ const translations = {
 export function useTranslation() {
   const language = useLanguageStore((state) => state.language);
   const setLanguage = useLanguageStore((state) => state.setLanguage);
-  const t = (key: string): string => {
+  const t = (key: string, vars?: Record<string, any>): string => {
     const keys = key.split('.');
     let result: any = translations[language];
     for (const k of keys) {
@@ -206,7 +211,7 @@ export function useTranslation() {
         return key;
       }
     }
-    return result;
+    return interpolateT(result, vars || {});
   };
   return { t, setLanguage, language };
 }

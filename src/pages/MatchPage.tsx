@@ -8,88 +8,95 @@ import { Toaster, toast } from '@/components/ui/sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { MatchClock } from '@/components/MatchClock';
 import { DragDropLineup } from '@/components/DragDropLineup';
-import { MOCK_PLAYERS, MOCK_MATCHES } from '@shared/mock-data';
 import type { Player, Match } from '@shared/types';
 import { matchMachine } from '@/lib/matchMachine';
 import { suggestSwaps } from '@/lib/substitutionSuggestions';
-import { runSync } from '@/lib/sync';
 import { Navigation } from '@/components/Navigation';
 import { useTranslation } from '@/lib/translations';
+import db from '@/lib/local-db';
 export function MatchPage() {
   const { t } = useTranslation();
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
-  const [match, setMatch] = useState<Match | null>(null);
+  const [match, setMatch] = useState<Partial<Match> & { teamSize: number; carryover: boolean } | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [minutesPlayed, setMinutesPlayed] = useState<Record<string, number>>({});
   const [current, send] = useMachine(matchMachine);
   useEffect(() => {
     async function loadData() {
       if (!matchId) return;
-      // In a real app, this would be a fetch from local-db or API
-      const matchData = MOCK_MATCHES.find(m => m.id === matchId) || null;
-      setMatch(matchData);
-      const playersData = MOCK_PLAYERS;
+      const matchConfig = await db.getMeta('newMatchConfig');
+      if (!matchConfig || matchConfig.id !== matchId) {
+        toast.error("Match configuration not found.");
+        navigate('/');
+        return;
+      }
+      setMatch({
+        id: matchId,
+        duration_minutes: matchConfig.duration,
+        teamSize: matchConfig.teamSize,
+        carryover: matchConfig.carryover,
+        opponent: matchConfig.opponent,
+        status: 'Klar',
+        teamId: 'heimdal-g12'
+      });
+      const playersData = await db.getPlayers('heimdal-g12');
       setPlayers(playersData);
-      const initialOnField = new Set(playersData.slice(0, 7).map(p => p.id));
-      const initialOnBench = new Set(playersData.slice(7).map(p => p.id));
+      let initialMinutes = playersData.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {});
+      if (matchConfig.carryover) {
+        const prevMinutes = await db.getPreviousMinutes();
+        const totalMinutes = Object.values(prevMinutes).reduce((a, b) => a + b, 0);
+        const avgMinutes = playersData.length > 0 ? totalMinutes / playersData.length : 0;
+        initialMinutes = playersData.reduce((acc, p) => {
+          const pMins = prevMinutes[p.id] || 0;
+          const deficit = pMins < avgMinutes ? Math.round((pMins - avgMinutes) / 2) : 0;
+          return { ...acc, [p.id]: deficit };
+        }, {});
+      }
+      setMinutesPlayed(initialMinutes);
+      const initialOnField = new Set(playersData.slice(0, matchConfig.teamSize).map(p => p.id));
+      const initialOnBench = new Set(playersData.slice(matchConfig.teamSize).map(p => p.id));
       send({
         type: 'RESET',
         context: {
-            onField: initialOnField,
-            onBench: initialOnBench,
-            players: playersData,
-            durationMs: (matchData?.duration_minutes || 45) * 60 * 1000,
+          onField: initialOnField,
+          onBench: initialOnBench,
+          players: playersData,
+          durationMs: (matchConfig.duration || 45) * 60 * 1000,
         }
       });
-      const initialMinutes = playersData.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {});
-      setMinutesPlayed(initialMinutes);
+      await db.setMeta('newMatchConfig', null);
     }
     loadData();
-  }, [matchId, send]);
-  const handleTick = useCallback(() => {
+  }, [matchId, send, navigate]);
+  const handleTick = useCallback((elapsedMs: number) => {
+    const deltaSeconds = 1; // Assuming tick is called every second
     setMinutesPlayed(prev => {
       const newMinutes = { ...prev };
-      if (current?.context?.onField) {
-        current.context.onField.forEach((playerId: string) => {
-          newMinutes[playerId] = (newMinutes[playerId] || 0) + (1 / 60);
-        });
-      }
+      current.context.onField.forEach((playerId: string) => {
+        newMinutes[playerId] = (newMinutes[playerId] || 0) + (deltaSeconds / 60);
+      });
       return newMinutes;
     });
-  }, [current]);
-  const handleSwapRequest = (playerId: string) => {
-    toast.info(`Substitution request for player ${playerId}. Use drag-and-drop or suggestions.`);
-  };
+  }, [current.context.onField]);
   const handleLineupChange = (playerOutId: string, playerInId: string) => {
     send({ type: 'SUBSTITUTE', playerOutId, playerInId });
+    db.addEvent({
+      type: 'SUBSTITUTION',
+      matchId: matchId!,
+      payload: { playerOutId, playerInId, minute: current.context.elapsedMs / 60000 }
+    });
     toast.success(t('match.substitutionMade'));
   };
   const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
-    const onField = current?.context?.onField ?? new Set();
-    const onBench = current?.context?.onBench ?? new Set();
-    const field = players.filter(p => onField.has(p.id));
-    const bench = players.filter(p => onBench.has(p.id));
-    return [field, bench];
-  }, [players, current]);
+    const onField = players.filter(p => current.context.onField.has(p.id));
+    const onBench = players.filter(p => current.context.onBench.has(p.id));
+    return [onField, onBench];
+  }, [players, current.context.onField, current.context.onBench]);
   const suggestions = useMemo(() => suggestSwaps(onFieldPlayers, onBenchPlayers, minutesPlayed, 'even'), [onFieldPlayers, onBenchPlayers, minutesPlayed]);
-  const isRunning = useMemo(() => current.matches('running'), [current]);
-  useEffect(() => {
-    if (!isRunning) return;
-    const interval = setInterval(() => {
-      runSync();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isRunning]);
   if (!match) {
     return (
-      <div className="center h-screen">
-        <Card>
-          <CardContent className="text-center p-8">
-            <p aria-live="polite">{t('match.loading')}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <div className="center h-screen"><p aria-live="polite">{t('match.loading')}</p></div>
     );
   }
   return (
@@ -105,21 +112,27 @@ export function MatchPage() {
               </Button>
               <div>
                 <h1 className="text-3xl md:text-4xl font-bold text-foreground">{t('match.liveTitle')}</h1>
-                <p className="text-muted-foreground">{match.teamId} {t('match.opponent')} {match.opponent}</p>
+                <p className="text-muted-foreground">{t('match.teamSizeDisplay', { size: match.teamSize })}</p>
               </div>
             </div>
             <div className="space-y-8">
-              <MatchClock durationMinutes={match.duration_minutes} onTick={handleTick} onStatusChange={(status) => {
-                if (status === 'running' && !current.matches('running')) send({ type: 'START' });
+              <MatchClock durationMinutes={match.duration_minutes || 45} onTick={handleTick} onStatusChange={(status) => {
+                if (status === 'running' && !current.matches('running')) {
+                  send({ type: 'START' });
+                  db.addEvent({ type: 'START', matchId: matchId!, payload: { initialLineup: Array.from(current.context.onField) } });
+                }
                 if (status === 'paused') send({ type: 'PAUSE' });
-                if (status === 'stopped') send({ type: 'STOP' });
+                if (status === 'stopped') {
+                  send({ type: 'STOP' });
+                  db.setMeta('lastSessionMinutes', minutesPlayed);
+                }
               }} />
               <DragDropLineup
                 onFieldPlayers={onFieldPlayers}
                 onBenchPlayers={onBenchPlayers}
                 minutesPlayed={minutesPlayed}
-                onSwapRequest={handleSwapRequest}
                 onLineupChange={handleLineupChange}
+                teamSize={match.teamSize}
               />
               <Card className="bg-gradient-to-r from-heimdal-orange/5 to-heimdal-navy/5">
                 <CardHeader>

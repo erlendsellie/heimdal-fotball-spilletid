@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { bearerAuth } from 'hono/bearer-auth';
 import type { Env } from './core-utils';
-import { UserEntity, MatchEntity, TournamentEntity, PlayerEntity } from "./entities";
+import { UserEntity, MatchEntity, PlayerEntity } from "./entities";
 import { MOCK_USERS } from "@shared/mock-data";
 import { ok, bad, notFound, isStr } from './core-utils';
-import type { MatchEvent, User } from "@shared/types";
+import type { MatchEvent, User, Player } from "@shared/types";
 const DUMMY_TOKEN = "secret-token-for-dev";
 const authMiddleware = bearerAuth({ token: DUMMY_TOKEN });
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
@@ -27,7 +27,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return ok(c, { seeded: true });
     } catch (e) {
       console.error('Seed error:', e);
-      // Provide a more helpful message when Durable Objects / DO operations fail
       const detail = e instanceof Error ? e.message : String(e);
       return c.json({ success: false, error: 'Server error during seeding', detail }, 500);
     }
@@ -36,57 +35,21 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     try {
       const { email, password } = await c.req.json<{ email?: string, password?: string }>();
       if (!isStr(email) || !isStr(password)) return bad(c, 'Email and password required');
-
-      // Attempt to find user via Durable Object; if DO fails, fall back to in-memory MOCK_USERS
-      let userEntity: any;
+      let userEntity: UserEntity | null = null;
       try {
         userEntity = await UserEntity.findByEmail(c.env, email);
       } catch (doFindErr) {
         console.error('UserEntity.findByEmail failed, falling back to MOCK_USERS:', doFindErr);
-        userEntity = undefined;
       }
-
       if (!userEntity) {
         const mock = MOCK_USERS.find(u => u.email === email);
-        if (mock) {
-          const demoUser: User = { ...mock, id: email };
-          try {
-            // Try to create DO entry for demo user, but if that fails allow fallback
-            await UserEntity.create(c.env, demoUser);
-            userEntity = await UserEntity.findByEmail(c.env, email);
-          } catch (createErr) {
-            console.error('UserEntity.create failed for demo user, continuing with in-memory mock:', createErr);
-            // Fallback: allow login using in-memory mock user
-            const pwdHashOrPwd: any = (demoUser as any).passwordHash ?? (demoUser as any).password;
-            if (pwdHashOrPwd !== password) {
-              return c.json({ success: false, error: 'Invalid credentials' }, 401);
-            }
-            const { passwordHash, ...userSafe } = demoUser as any;
-            return ok(c, { token: DUMMY_TOKEN, user: userSafe });
-          }
-        }
-      }
-
-      if (!userEntity) return notFound(c, 'User not found');
-
-      // Retrieve state from DO; if that fails, try MOCK_USERS as last resort
-      let user: any;
-      try {
-        user = await userEntity.getState();
-      } catch (getStateErr) {
-        console.error('userEntity.getState failed, falling back to MOCK_USERS if available:', getStateErr);
-        const mock = MOCK_USERS.find(u => u.email === email);
-        if (mock) {
-          const pwdHashOrPwd: any = (mock as any).passwordHash ?? (mock as any).password;
-          if (pwdHashOrPwd !== password) {
-            return c.json({ success: false, error: 'Invalid credentials' }, 401);
-          }
-          const { passwordHash, ...userSafe } = { ...mock, id: email } as any;
+        if (mock && mock.passwordHash === password) {
+          const { passwordHash, ...userSafe } = mock;
           return ok(c, { token: DUMMY_TOKEN, user: userSafe });
         }
-        return c.json({ success: false, error: 'Server error during login' }, 500);
+        return c.json({ success: false, error: 'Invalid credentials' }, 401);
       }
-
+      const user = await userEntity.getState();
       if (user.passwordHash !== password) {
         return c.json({ success: false, error: 'Invalid credentials' }, 401);
       }
@@ -153,8 +116,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
   app.post('/api/players', observerGuard, async (c) => {
     try {
-      const player = await c.req.json();
-      if (!isStr(player.name)) return bad(c, 'Player name required');
+      const player = await c.req.json<Player>();
+      if (!isStr(player.name) || !player.number || !player.teamId) return bad(c, 'Player name, number, and teamId required');
+      const allPlayers = await PlayerEntity.list(c.env);
+      if (allPlayers.items.some(p => p.number === player.number && p.teamId === player.teamId)) {
+        return bad(c, 'Player number must be unique for the team');
+      }
       const newPlayer = await PlayerEntity.create(c.env, { ...player, id: crypto.randomUUID() });
       return ok(c, newPlayer);
     } catch (e) {
@@ -162,40 +129,33 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return c.json({ success: false, error: 'Server error' }, 500);
     }
   });
-  app.get('/api/tournaments', async (c) => {
+  app.put('/api/players/:id', observerGuard, async (c) => {
+    const id = c.req.param('id');
     try {
-      const page = await TournamentEntity.list(c.env);
-      return ok(c, page.items);
+      const partial = await c.req.json<Partial<Player>>();
+      const player = new PlayerEntity(c.env, id);
+      if (!await player.exists()) return notFound(c, 'Player not found');
+      if (partial.number) {
+        const existingState = await player.getState();
+        const allPlayers = await PlayerEntity.list(c.env);
+        if (allPlayers.items.some(p => p.number === partial.number && p.teamId === existingState.teamId && p.id !== id)) {
+          return bad(c, 'Player number must be unique for the team');
+        }
+      }
+      await player.update(partial);
+      return ok(c, await player.getState());
     } catch (e) {
-      console.error('Get tournaments error:', e);
+      console.error(`Player update error for ${id}:`, e);
       return c.json({ success: false, error: 'Server error' }, 500);
     }
   });
-  app.post('/api/tournaments', observerGuard, async (c) => {
+  app.delete('/api/players/:id', observerGuard, async (c) => {
+    const id = c.req.param('id');
     try {
-      const { name, carryover_rules } = await c.req.json();
-      if (!isStr(name)) return bad(c, 'Tournament name required');
-      const tournament = await TournamentEntity.create(c.env, {
-        id: crypto.randomUUID(),
-        name,
-        matchIds: [],
-        carryover_rules: carryover_rules || { enabled: false },
-      });
-      return ok(c, tournament);
+      const deleted = await PlayerEntity.delete(c.env, id);
+      return deleted ? ok(c, { deleted: true }) : notFound(c, 'Player not found');
     } catch (e) {
-      console.error('Create tournament error:', e);
-      return c.json({ success: false, error: 'Server error' }, 500);
-    }
-  });
-  app.get('/api/tournaments/:id/stats', async (c) => {
-    const tournamentId = c.req.param('id');
-    try {
-      const tournament = new TournamentEntity(c.env, tournamentId);
-      if (!await tournament.exists()) return notFound(c, 'Tournament not found');
-      const stats = await tournament.aggregateStats(c.env);
-      return ok(c, stats);
-    } catch (e) {
-      console.error(`Stats error for tournament ${tournamentId}:`, e);
+      console.error(`Player delete error for ${id}:`, e);
       return c.json({ success: false, error: 'Server error' }, 500);
     }
   });

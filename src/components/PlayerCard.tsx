@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
-import { Shirt, ArrowRightLeft, Clock } from 'lucide-react';
+import { Shirt, ArrowRightLeft, Clock, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { Player } from '@shared/types';
+import { useTranslation } from '@/lib/translations';
 interface PlayerCardProps {
   player: Player;
   minutesPlayed: number;
@@ -13,6 +14,8 @@ interface PlayerCardProps {
 }
 const formatMinutes = (minutes: number) => Math.floor(minutes);
 export function PlayerCard({ player, minutesPlayed, onSwapRequest, isOnField }: PlayerCardProps) {
+  const { t } = useTranslation();
+  const isDeficit = minutesPlayed < 0;
   return (
     <motion.div
       layout
@@ -23,7 +26,8 @@ export function PlayerCard({ player, minutesPlayed, onSwapRequest, isOnField }: 
     >
       <Card className={cn(
         "transition-all duration-200 ease-in-out hover:shadow-xl hover:-translate-y-1",
-        isOnField ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-card"
+        isOnField ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" : "bg-card",
+        isDeficit && "border-yellow-400 dark:border-yellow-700"
       )}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg font-bold text-pretty">{player.name}</CardTitle>
@@ -35,13 +39,19 @@ export function PlayerCard({ player, minutesPlayed, onSwapRequest, isOnField }: 
           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
             <div className="flex items-center">
               <Shirt className="mr-1.5 h-4 w-4" />
-              <span>{player.position}</span>
+              <span>{t(`positions.${player.position.toLowerCase()}`)}</span>
             </div>
             <div className="flex items-center">
               <Clock className="mr-1.5 h-4 w-4" />
-              <span>{formatMinutes(minutesPlayed)} min</span>
+              <span>{formatMinutes(Math.max(0, minutesPlayed))} min</span>
             </div>
           </div>
+          {isDeficit && (
+            <div className="flex items-center text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+              <TrendingDown className="mr-1.5 h-4 w-4" />
+              <span>{t('match.deficit', { min: formatMinutes(minutesPlayed) })}</span>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex justify-between items-center">
           {isOnField ? (
