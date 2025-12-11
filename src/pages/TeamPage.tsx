@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PlusCircle, User, Edit, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -35,24 +35,30 @@ export function TeamPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const form = useForm<PlayerFormData>({
     resolver: zodResolver(playerSchema),
-    defaultValues: { name: '', number: undefined, position: 'Midfield', age: undefined },
+    defaultValues: { name: '', number: undefined, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' },
   });
   useEffect(() => {
     const fetchPlayers = async () => {
-      const localPlayers = await db.getPlayers('heimdal-g12');
-      setPlayers(localPlayers);
+      try {
+        const localPlayers = await db.getPlayers('heimdal-g12');
+        setPlayers(localPlayers);
+      } catch (error) {
+        toast.error("Failed to load players.");
+      }
     };
     fetchPlayers();
   }, []);
   useEffect(() => {
-    if (editingPlayer) {
-      form.reset(editingPlayer);
-    } else {
-      form.reset({ name: '', number: undefined, position: 'Midfield', age: undefined });
+    if (isSheetOpen) {
+      if (editingPlayer) {
+        form.reset(editingPlayer);
+      } else {
+        form.reset({ name: '', number: undefined, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' });
+      }
     }
-  }, [editingPlayer, form]);
+  }, [editingPlayer, isSheetOpen, form]);
   const onSubmit = async (data: PlayerFormData) => {
-    const isUnique = players.every(p => p.id === data.id || p.number !== data.number);
+    const isUnique = !players.some(p => p.id !== editingPlayer?.id && p.number === data.number && p.teamId === data.teamId);
     if (!isUnique) {
       toast.error(t('team.uniqueNumber'));
       return;
@@ -60,12 +66,14 @@ export function TeamPage() {
     try {
       if (editingPlayer) {
         const updatedPlayer = await api<Player>(`/api/players/${editingPlayer.id}`, { method: 'PUT', body: JSON.stringify(data) });
-        setPlayers(players.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
+        const updatedPlayers = players.map(p => p.id === updatedPlayer.id ? updatedPlayer : p);
+        setPlayers(updatedPlayers);
         await db.savePlayer(updatedPlayer);
         toast.success(t('team.updated'));
       } else {
         const newPlayer = await api<Player>('/api/players', { method: 'POST', body: JSON.stringify(data) });
-        setPlayers([...players, newPlayer]);
+        const newPlayers = [...players, newPlayer];
+        setPlayers(newPlayers);
         await db.savePlayer(newPlayer);
         toast.success(t('team.added'));
       }
@@ -78,7 +86,8 @@ export function TeamPage() {
   const handleDelete = async (playerId: string) => {
     try {
       await api(`/api/players/${playerId}`, { method: 'DELETE' });
-      setPlayers(players.filter(p => p.id !== playerId));
+      const filteredPlayers = players.filter(p => p.id !== playerId);
+      setPlayers(filteredPlayers);
       await db.deletePlayer(playerId);
       toast.success(t('team.deleted'));
     } catch (error: any) {
@@ -105,7 +114,7 @@ export function TeamPage() {
               </div>
               <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                 <SheetTrigger asChild>
-                  <Button size="lg" className="bg-heimdal-orange hover:bg-heimdal-navy text-white shadow-lg mt-4 sm:mt-0" onClick={() => setEditingPlayer(null)}>
+                  <Button size="lg" className="bg-heimdal-orange hover:bg-heimdal-navy text-white shadow-lg mt-4 sm:mt-0" onClick={() => { setEditingPlayer(null); setIsSheetOpen(true); }}>
                     <PlusCircle className="mr-2 h-5 w-5" />
                     {t('team.addTitle')}
                   </Button>
@@ -165,12 +174,12 @@ export function TeamPage() {
                       <p className="text-muted-foreground">{t(`positions.${player.position.toLowerCase()}`)}</p>
                     </CardContent>
                     <CardFooter className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => { setEditingPlayer(player); setIsSheetOpen(true); }}>
+                      <Button variant="ghost" size="icon" aria-label={`Edit ${player.name}`} onClick={() => { setEditingPlayer(player); setIsSheetOpen(true); }}>
                         <Edit className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                          <Button variant="ghost" size="icon" aria-label={`Delete ${player.name}`} className="text-destructive hover:text-destructive">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>

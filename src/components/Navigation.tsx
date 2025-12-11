@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Users, Settings, LogOut, Menu } from 'lucide-react';
+import { Home, Users, Settings, LogOut, Menu, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { auth } from '@/lib/auth';
@@ -24,6 +24,7 @@ export function Navigation() {
   const { t } = useTranslation();
   const navItems = [
     { to: '/', label: t('nav.dashboard'), icon: Home },
+    { to: '/tournament', label: t('nav.tournaments'), icon: Layers },
     { to: '/team', label: t('nav.team'), icon: Users },
     { to: '/settings', label: t('nav.settings'), icon: Settings },
   ];

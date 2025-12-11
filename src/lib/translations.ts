@@ -35,7 +35,7 @@ const translations = {
       subtitle: 'Spilletid & Bytte-verktøy',
       description: 'Kontroller og følg spilletid for hver spiller i sanntid. Fungerer offline, med smarte forslag til bytter.',
       createMatch: 'Ny Kamp',
-      teamSize: 'Antall p�� Banen',
+      teamSize: 'Antall på Banen',
       duration: 'Varighet (minutter)',
       carryover: 'Bruk Tid fra Forrige Kamp?',
       startMatch: 'Start Kamp',
@@ -107,6 +107,13 @@ const translations = {
       playerStatsDesc: 'Totalt antall minutter spilt denne sesongen.',
       exportData: 'Eksporter Data',
       exportDataDesc: 'Last ned kamp- eller turneringsdata.',
+    },
+    tournament: {
+      title: 'Turneringer & Kamper',
+      createMatch: 'Opprett Ny Kamp',
+      aggregateStats: 'Aggregerte Statistikk',
+      totalMinutes: 'Total Minutter: {{min}} min',
+      noMatches: 'Ingen kamper å vise. Opprett din første!',
     },
   },
   en: {
@@ -195,6 +202,13 @@ const translations = {
       playerStatsDesc: 'Total minutes played this season.',
       exportData: 'Export Data',
       exportDataDesc: 'Download match or tournament data.',
+    },
+    tournament: {
+      title: 'Tournaments & Matches',
+      createMatch: 'Create New Match',
+      aggregateStats: 'Aggregate Stats',
+      totalMinutes: 'Total Minutes: {{min}} min',
+      noMatches: 'No matches to show. Create your first!',
     },
   },
 };

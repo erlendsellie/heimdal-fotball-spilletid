@@ -2,7 +2,7 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { v4 as uuidv4 } from 'uuid';
 import type { Player, Match, MatchEvent } from '@shared/types';
 const DB_NAME = 'heimdal-spilletid-db';
-const DB_VERSION = 2; // Incremented version for schema change
+const DB_VERSION = 2; // Version remains 2 as schema is compatible
 interface HeimdalDB extends DBSchema {
   matches: { key: string; value: Match; };
   players: { key: string; value: Player; indexes: { teamId: string }; };
@@ -42,8 +42,15 @@ export const db = {
   async getMatch(matchId: string): Promise<Match | undefined> {
     return (await getDb()).get('matches', matchId);
   },
+  async getAllMatches(): Promise<Match[]> {
+    return (await getDb()).getAll('matches');
+  },
   async saveMatch(match: Match): Promise<void> {
     await (await getDb()).put('matches', match);
+  },
+  async saveAllMatches(matches: Match[]): Promise<void> {
+    const tx = (await getDb()).transaction('matches', 'readwrite');
+    await Promise.all([...matches.map(m => tx.store.put(m)), tx.done]);
   },
   async getPlayers(teamId: string): Promise<Player[]> {
     return (await getDb()).getAllFromIndex('players', 'teamId', teamId);
@@ -81,6 +88,21 @@ export const db = {
       .map(event => tx.store.put({ ...event, synced: true }));
     await Promise.all([...updates, tx.done]);
   },
+  async compactOplog(): Promise<void> {
+    try {
+      const db = await getDb();
+      const allEvents = await db.getAll('oplog');
+      if (allEvents.length < 1000) return; // Only compact if oplog is large
+      const eventsToKeep = allEvents.filter(e => !e.synced);
+      const tx = db.transaction('oplog', 'readwrite');
+      await tx.store.clear();
+      await Promise.all(eventsToKeep.map(e => tx.store.put(e)));
+      await tx.done;
+      console.log(`Oplog compacted. Kept ${eventsToKeep.length} unsynced events.`);
+    } catch (error) {
+      console.error("Failed to compact oplog:", error);
+    }
+  },
   async getMeta(key: string): Promise<any> {
     const result = await (await getDb()).get('meta', key);
     return result ? result.value : undefined;
@@ -90,6 +112,12 @@ export const db = {
   },
   async getPreviousMinutes(): Promise<Record<string, number>> {
     return (await this.getMeta('lastSessionMinutes')) || {};
+  },
+  async getTournamentMinutes(): Promise<Record<string, number>> {
+    return (await this.getMeta('tournamentLastMinutes')) || {};
+  },
+  async setTournamentMinutes(minutes: Record<string, number>): Promise<void> {
+    await this.setMeta('tournamentLastMinutes', minutes);
   },
 };
 export default db;

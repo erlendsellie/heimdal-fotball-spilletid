@@ -47,7 +47,7 @@ export async function runSync(isManual = false) {
       }
     }
     if (isManual) toast.success(`Successfully synced ${totalSynced} updates.`);
-    await db.compactOplog();
+    await db.compactOplog(); // Call compaction after successful sync
     retryCount = 0;
     return { success: true, synced: totalSynced };
   } catch (error) {
