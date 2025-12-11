@@ -18,6 +18,7 @@ import { Navigation } from '@/components/Navigation';
 import { useTranslation } from '@/lib/translations';
 import db from '@/lib/local-db';
 import { api } from '@/lib/api-client';
+import { useDebounce } from 'react-use';
 const playerSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Name is required"),
@@ -43,13 +44,22 @@ const playerSchema = z.object({
   teamId: z.string(),
 });
 type PlayerFormData = z.infer<typeof playerSchema>;
+const stagger = {
+  visible: {
+    transition: {
+      staggerChildren: 0.05,
+    },
+  },
+};
 export function TeamPage() {
   const { t } = useTranslation();
   const [players, setPlayers] = useState<Player[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const sheetTriggerId = useId();
+  useDebounce(() => setDebouncedSearchTerm(searchTerm), 300, [searchTerm]);
   const form = useForm<PlayerFormData>({
     resolver: zodResolver(playerSchema) as any,
     defaultValues: { name: '', number: undefined, position: 'Midfield', age: undefined, teamId: 'heimdal-g12' },
@@ -90,7 +100,6 @@ export function TeamPage() {
         return;
       }
       if (editingPlayer) {
-        console.debug('Updating player with payload', validatedData);
         const updated = await api<Player>(`/api/players/${editingPlayer.id}`, {
           method: 'PUT',
           body: JSON.stringify(validatedData),
@@ -99,7 +108,6 @@ export function TeamPage() {
         await db.savePlayer(updated);
         toast.success(t('team.updated'));
       } else {
-        console.debug('Creating player with payload', validatedData);
         const created = await api<Player>('/api/players', {
           method: 'POST',
           body: JSON.stringify(validatedData),
@@ -127,14 +135,14 @@ export function TeamPage() {
     }
   };
   const filteredPlayers = players.filter((player) =>
-    player.name.toLowerCase().includes(searchTerm.toLowerCase())
+    player.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
   );
   return (
     <>
       <ThemeToggle className="fixed top-4 right-4 z-50" />
       <Navigation />
       <div className="md:pl-64">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-testid="root-wrapper">
           <div className="py-8 md:py-10 lg:py-12">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10">
               <div>
@@ -183,7 +191,7 @@ export function TeamPage() {
                         name="number"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('team.numberOptional')}</FormLabel>
+                            <FormLabel aria-describedby="number-help">{t('team.numberOptional')}</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -193,6 +201,7 @@ export function TeamPage() {
                                 value={field.value ?? ''}
                               />
                             </FormControl>
+                            <p id="number-help" className="text-xs text-muted-foreground sr-only">Nummer (valgfri)</p>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -225,7 +234,7 @@ export function TeamPage() {
                         name="age"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('team.age')}</FormLabel>
+                            <FormLabel aria-describedby="age-help">{t('team.age')}</FormLabel>
                             <FormControl>
                               <Input
                                 type="number"
@@ -234,6 +243,7 @@ export function TeamPage() {
                                 value={field.value ?? ''}
                               />
                             </FormControl>
+                            <p id="age-help" className="text-xs text-muted-foreground sr-only">Alder (valgfri)</p>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -253,13 +263,11 @@ export function TeamPage() {
               className="mb-8 max-w-sm"
               aria-label={t('team.searchPlaceholder')}
             />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredPlayers.map((player, i) => (
+            <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" variants={stagger} initial="hidden" animate="visible">
+              {filteredPlayers.map((player) => (
                 <motion.div
                   key={player.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: i * 0.05 }}
+                  variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
                 >
                   <Card className="transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full">
                     <CardHeader className="flex flex-row items-center justify-between">
@@ -314,7 +322,7 @@ export function TeamPage() {
                   </Card>
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>

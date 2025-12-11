@@ -64,13 +64,13 @@ function ActiveMatchCard({ activeMatch }: { activeMatch: any }) {
       transition={{ duration: 0.5 }}
       className="w-full max-w-3xl mb-8"
     >
-      <Card className="bg-gradient-to-r from-heimdal-orange/10 to-heimdal-navy/10 border-heimdal-orange/50">
+      <Card className="bg-gradient-to-r from-heimdal-orange/10 to-heimdal-navy/10 border-heimdal-orange/50" aria-label={`Active match timer: ${formatTime(liveElapsed)}`}>
         <CardHeader>
           <CardTitle>{t('home.paaagaendeKamp')}</CardTitle>
           <CardDescription>{t('home.activeMatchDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-5xl font-mono font-bold text-foreground">
+          <div className="text-5xl font-mono font-bold text-foreground" aria-live="polite" data-testid="live-time">
             {formatTime(liveElapsed)}
           </div>
           <Button onClick={() => navigate(`/match/${activeMatch.id}`)} className="bg-heimdal-orange hover:bg-heimdal-navy text-white h-12 px-8 text-lg">
@@ -133,7 +133,7 @@ export function HomePage() {
       <Navigation />
       <div className="md:pl-64">
         <main>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-testid="root-wrapper">
             <div className="py-16 md:py-24 lg:py-32">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -164,11 +164,11 @@ export function HomePage() {
                 >
                   <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetTrigger asChild>
-                      <Button size="lg" className="bg-heimdal-orange hover:bg-heimdal-navy text-white text-xl font-semibold px-8 py-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                      <Button size="lg" className="bg-heimdal-orange hover:bg-heimdal-navy text-white text-xl font-semibold px-8 py-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 shadow-glow hover:shadow-glow-lg">
                         {t('home.startButton')}
                       </Button>
                     </SheetTrigger>
-                    <SheetContent className="bg-gradient-to-b from-heimdal-orange/5 to-heimdal-navy/5">
+                    <SheetContent className="bg-gradient-to-b from-heimdal-orange/10 via-background to-heimdal-navy/10">
                       <SheetHeader>
                         <SheetTitle className="text-2xl font-bold">{t('home.createMatch')}</SheetTitle>
                       </SheetHeader>

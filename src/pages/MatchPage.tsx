@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useLocalMatchMachine } from '@/lib/matchMachineLocal';
 import { loadInitialContext } from '@/lib/matchMachine';
-import { ArrowLeft, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Toaster, toast } from '@/components/ui/sonner';
@@ -15,7 +16,7 @@ import { Navigation } from '@/components/Navigation';
 import { useTranslation } from '@/lib/translations';
 import db from '@/lib/local-db';
 import { useDebounce } from 'react-use';
-import { runSync } from '@/lib/sync';
+import { runSync, useLiveSync } from '@/lib/sync';
 export function MatchPage() {
   const { t } = useTranslation();
   const { matchId } = useParams<{ matchId: string }>();
@@ -24,6 +25,12 @@ export function MatchPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [minutesPlayed, setMinutesPlayed] = useState<Record<string, number>>({});
   const [current, send] = useLocalMatchMachine();
+  const syncStatus = useLiveSync(matchId!);
+  useEffect(() => {
+    if (syncStatus === 'error') {
+      toast.warning('Live sync connection issue.');
+    }
+  }, [syncStatus]);
   useDebounce(runSync, 5000, [minutesPlayed]);
   const [onFieldPlayers, onBenchPlayers] = useMemo(() => {
     const onFieldSet = (current.context?.onField as Set<string>) ?? new Set<string>();
@@ -35,15 +42,10 @@ export function MatchPage() {
   useEffect(() => {
     async function loadData() {
       if (!matchId) return;
-
-      // Try new match config first
       let matchConfig = await db.getMeta('newMatchConfig');
-
-      // If not present or not matching, try activeMatch meta
       if (!matchConfig || matchConfig.id !== matchId) {
         const activeMatchMeta = await db.getMeta('activeMatch');
         if (activeMatchMeta && activeMatchMeta.id === matchId) {
-          // Prefer activeMatch meta as lightweight config
           matchConfig = {
             id: activeMatchMeta.id,
             duration: activeMatchMeta.duration,
@@ -53,8 +55,6 @@ export function MatchPage() {
           };
         }
       }
-
-      // If still no matchConfig, try loading full match from DB
       if (!matchConfig || matchConfig.id !== matchId) {
         const persisted = await db.getMatch(matchId);
         if (persisted) {
@@ -68,18 +68,13 @@ export function MatchPage() {
           };
         }
       }
-
       if (!matchConfig || matchConfig.id !== matchId) {
         toast.error("Match configuration not found.");
         navigate('/');
         return;
       }
-
-      // Load saved clock state (if any)
       const savedClock = await db.getMeta(`activeMatchClock_${matchId}`) || { elapsedMs: 0, status: 'stopped' };
-
       const cfg = matchConfig as any;
-
       setMatch({
         id: matchId,
         duration_minutes: cfg.duration,
@@ -88,18 +83,13 @@ export function MatchPage() {
         status: 'Klar',
         teamId: 'heimdal-g12'
       });
-
       const playersData = await db.getPlayers('heimdal-g12');
       setPlayers(playersData);
       setMinutesPlayed(cfg.deficits || {});
-
       const initialContext = await loadInitialContext(matchId);
       const initialOnField = initialContext.onField.size > 0 ? initialContext.onField : new Set<string>(cfg.lineup || []);
       const initialOnBench = initialContext.onBench.size > 0 ? initialContext.onBench : new Set<string>(playersData.filter(p => !initialOnField.has(p.id)).map(p => p.id));
-
-      // Initialize last elapsed reference (handled via ref in component)
       lastElapsedRef.current = savedClock.elapsedMs || 0;
-
       send({
         type: 'RESET',
         context: {
@@ -110,15 +100,11 @@ export function MatchPage() {
           elapsedMs: savedClock.elapsedMs || 0,
         }
       });
-
-      // After RESET, restore running/paused state if applicable
       if (savedClock.status === 'running') {
         send({ type: 'RESUME' });
       } else if (savedClock.status === 'paused') {
         send({ type: 'PAUSE' });
       }
-
-      // If we used a newMatchConfig to start, clear it
       await db.setMeta('newMatchConfig', null);
     }
     loadData();
@@ -145,7 +131,6 @@ export function MatchPage() {
   }, [current, minutesPlayed, onBenchPlayers, onFieldPlayers, t]);
   const lastElapsedRef = useRef<number>(0);
   const handleTick = useCallback((elapsedMs: number) => {
-    // Compute delta from last tick to handle pauses/resumes and variable tick intervals
     const prevElapsed = lastElapsedRef.current || 0;
     const deltaMs = Math.max(0, (elapsedMs || 0) - prevElapsed);
     const deltaMinutes = deltaMs / 60000;
@@ -175,7 +160,7 @@ export function MatchPage() {
       <ThemeToggle className="fixed top-4 right-4 z-50" />
       <Navigation />
       <div className="md:pl-64">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-testid="root-wrapper">
           <div className="py-8 md:py-10 lg:py-12">
             <div className="flex items-center gap-4 mb-8">
               <Button variant="outline" size="icon" onClick={() => navigate('/')} aria-label="Back to dashboard">
@@ -185,6 +170,7 @@ export function MatchPage() {
                 <h1 className="text-3xl md:text-4xl font-bold text-foreground">{t('match.liveTitle')}</h1>
                 <p className="text-muted-foreground">{t('match.teamSizeDisplay', { size: match.teamSize })}</p>
               </div>
+              {syncStatus === 'syncing' && <Loader2 className="h-6 w-6 animate-spin text-heimdal-orange" />}
             </div>
             <div className="space-y-8">
               <MatchClock
@@ -195,12 +181,11 @@ export function MatchPage() {
                   if (status === 'running' && !current.matches('running')) {
                     send({ type: 'START' });
                     db.addEvent({ type: 'START', matchId: matchId!, payload: { initialLineup: Array.from(current.context?.onField ?? new Set()) } });
-                    // persist active match
                     await db.setMeta('activeMatch', {
                       id: matchId,
                       status,
                       teamSize: match?.teamSize,
-                      duration: match?.duration_minutes || match?.duration_minutes || 45,
+                      duration: match?.duration_minutes || 45,
                       updatedAt: Date.now(),
                     });
                   } else if (status === 'paused' && !current.matches('paused')) {
@@ -209,7 +194,7 @@ export function MatchPage() {
                       id: matchId,
                       status,
                       teamSize: match?.teamSize,
-                      duration: match?.duration_minutes || match?.duration_minutes || 45,
+                      duration: match?.duration_minutes || 45,
                       updatedAt: Date.now(),
                     });
                   } else if (status === 'running' && current.matches('paused')) {
@@ -218,7 +203,7 @@ export function MatchPage() {
                       id: matchId,
                       status,
                       teamSize: match?.teamSize,
-                      duration: match?.duration_minutes || match?.duration_minutes || 45,
+                      duration: match?.duration_minutes || 45,
                       updatedAt: Date.now(),
                     });
                   } else if (status === 'stopped' && !current.matches('stopped')) {
@@ -242,14 +227,14 @@ export function MatchPage() {
                 </CardHeader>
                 <CardContent>
                   {suggestions.length > 0 ? (
-                    <ul className="space-y-2">
+                    <motion.ul initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ stiffness: 300 }} className="space-y-2">
                       {suggestions.map((s, i) => (
                         <li key={i} className="text-sm p-2 border rounded-md flex justify-between items-center bg-background/50">
                           <span><strong>Ut:</strong> {s.out.name}, <strong>Inn:</strong> {s.in.name} ({s.reason})</span>
                           <Button size="sm" className="bg-heimdal-orange hover:bg-heimdal-navy text-white focus:ring-heimdal-orange" onClick={() => handleLineupChange(s.out.id, s.in.id)}>{t('match.substitute')}</Button>
                         </li>
                       ))}
-                    </ul>
+                    </motion.ul>
                   ) : <p className="text-sm text-muted-foreground">{t('match.noSuggestions')}</p>}
                 </CardContent>
               </Card>

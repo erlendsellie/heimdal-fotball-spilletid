@@ -9,13 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast, Toaster } from '@/components/ui/sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Navigation } from '@/components/Navigation';
-import { Download, Settings as SettingsIcon } from 'lucide-react';
+import { Download, Settings as SettingsIcon, Loader2 } from 'lucide-react';
 import { useTranslation } from '@/lib/translations';
 import db from '@/lib/local-db';
-import type { Player, Match } from '@shared/types';
 export function SettingsPage() {
   const { t, language, setLanguage } = useTranslation();
   const [statsData, setStatsData] = useState<any[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
   useEffect(() => {
     async function loadStats() {
       const tournamentMins = await db.getTournamentMinutes();
@@ -29,6 +29,7 @@ export function SettingsPage() {
     loadStats();
   }, []);
   const handleExport = async (format: 'csv' | 'json') => {
+    setIsExporting(true);
     toast.loading(t('settings.exporting'));
     try {
       const players = await db.getPlayers('heimdal-g12');
@@ -66,6 +67,8 @@ export function SettingsPage() {
     } catch (error) {
       toast.error('Export failed.');
       console.error(error);
+    } finally {
+      setIsExporting(false);
     }
   };
   const handleLanguageChange = (checked: boolean) => {
@@ -78,7 +81,7 @@ export function SettingsPage() {
       <ThemeToggle className="fixed top-4 right-4 z-50" />
       <Navigation />
       <div className="md:pl-64">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-testid="root-wrapper">
           <div className="py-8 md:py-10 lg:py-12">
             <div className="mb-10">
               <h1 className="text-4xl md:text-5xl font-bold text-foreground flex items-center gap-3">
@@ -107,7 +110,7 @@ export function SettingsPage() {
                       <Label htmlFor="language-toggle">Språk (Language)</Label>
                       <div className="flex items-center gap-2">
                         <span>NO</span>
-                        <Switch id="language-toggle" checked={language === 'en'} onCheckedChange={handleLanguageChange} />
+                        <Switch id="language-toggle" checked={language === 'en'} onCheckedChange={handleLanguageChange} aria-label={`Toggle language to ${language === 'nb' ? 'English' : 'Norsk'}`} />
                         <span>EN</span>
                       </div>
                     </div>
@@ -146,11 +149,13 @@ export function SettingsPage() {
                     <CardDescription>{t('settings.exportDataDesc')}</CardDescription>
                   </CardHeader>
                   <CardContent className="flex gap-4">
-                    <Button variant="outline" className="border-heimdal-orange text-heimdal-orange hover:bg-heimdal-orange hover:text-white" onClick={() => handleExport('csv')}>
-                      <Download className="mr-2 h-4 w-4" /> {t('settings.exportCSV')}
+                    <Button variant="outline" className="border-heimdal-orange text-heimdal-orange hover:bg-heimdal-orange hover:text-white" onClick={() => handleExport('csv')} disabled={isExporting}>
+                      {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                      {t('settings.exportCSV')}
                     </Button>
-                    <Button variant="outline" className="border-heimdal-orange text-heimdal-orange hover:bg-heimdal-orange hover:text-white" onClick={() => handleExport('json')}>
-                      <Download className="mr-2 h-4 w-4" /> {t('settings.exportJSON')}
+                    <Button variant="outline" className="border-heimdal-orange text-heimdal-orange hover:bg-heimdal-orange hover:text-white" onClick={() => handleExport('json')} disabled={isExporting}>
+                      {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                      {t('settings.exportJSON')}
                     </Button>
                   </CardContent>
                 </Card>

@@ -11,7 +11,7 @@ const NavItem = ({ to, label, icon: Icon }: { to: string; label: string; icon: R
     end={to === '/'}
     className={({ isActive }) =>
       cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary focus:ring-2 focus:ring-heimdal-orange focus:ring-offset-2",
         isActive && "bg-heimdal-orange text-white hover:text-white hover:bg-heimdal-orange/90"
       )
     }
@@ -31,7 +31,7 @@ export function Navigation() {
   return (
     <>
       {/* Desktop Sidebar */}
-      <div className="hidden border-r bg-muted/40 md:block fixed top-0 left-0 h-full w-64">
+      <div className="hidden border-r bg-muted/40 md:block fixed top-0 left-0 h-full w-64 z-40">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 bg-heimdal-navy text-white">
             <NavLink to="/" className="flex items-center gap-2 font-semibold">
@@ -40,7 +40,7 @@ export function Navigation() {
             </NavLink>
           </div>
           <div className="flex-1">
-            <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
+            <nav className="grid items-start px-2 text-sm font-medium lg:px-4" role="navigation" aria-label="Main navigation">
               {navItems.map(item => <NavItem key={item.to} {...item} />)}
             </nav>
           </div>
@@ -56,13 +56,13 @@ export function Navigation() {
       <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6 md:hidden">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="shrink-0">
+            <Button variant="outline" size="icon" className="shrink-0" aria-label={t('nav.title')}>
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle navigation menu</span>
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex flex-col">
-            <nav className="grid gap-2 text-lg font-medium">
+            <nav className="grid gap-2 text-lg font-medium" role="navigation" aria-label="Main navigation">
               <NavLink to="/" className="flex items-center gap-2 text-lg font-semibold mb-4">
                 <img src="https://via.placeholder.com/192x192/E55A1B/FFFFFF?text=Heimdal" alt="Heimdal Fotball Logo" className="h-8 w-8 rounded-full" />
                 <span>Heimdal Spilletid</span>

@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Toaster, toast } from '@/components/ui/sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Navigation } from '@/components/Navigation';
-import type { Match, Player } from '@shared/types';
+import type { Match, Player, MatchEvent } from '@shared/types';
 import { useTranslation } from '@/lib/translations';
 import db from '@/lib/local-db';
 const calculateDeficits = (players: Player[], prevMinutes: Record<string, number>): Record<string, number> => {
@@ -27,6 +27,13 @@ const calculateDeficits = (players: Player[], prevMinutes: Record<string, number
     }
   });
   return deficits;
+};
+const stagger = {
+  visible: {
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
 };
 export function TournamentPage() {
   const { t } = useTranslation();
@@ -53,13 +60,32 @@ export function TournamentPage() {
   }, []);
   const aggregateStats = useMemo(() => {
     const totalMinutes: Record<string, number> = {};
-    // A more realistic aggregation would parse all events from all matches.
-    // This is a simplified version for the demo.
     matches.forEach(match => {
-      const lastSession = match.events.find(e => e.type === 'STOP')?.payload?.minutesPlayed || {};
-      for (const playerId in lastSession) {
-        totalMinutes[playerId] = (totalMinutes[playerId] || 0) + lastSession[playerId];
-      }
+      let onField = new Set<string>();
+      let lastTick = 0;
+      match.events.forEach((event: MatchEvent) => {
+        const delta = (event.ts - lastTick) / 60000;
+        onField.forEach(playerId => {
+          totalMinutes[playerId] = (totalMinutes[playerId] || 0) + delta;
+        });
+        lastTick = event.ts;
+        switch (event.type) {
+          case 'START':
+            onField = new Set(event.payload?.initialLineup || []);
+            break;
+          case 'SUBSTITUTION':
+            onField.delete(event.payload?.playerOutId);
+            onField.add(event.payload?.playerInId);
+            break;
+          case 'PAUSE':
+          case 'STOP':
+            onField.clear();
+            break;
+          case 'RESUME':
+            // In a more complex system, we'd need to know who was on field before pause.
+            break;
+        }
+      });
     });
     db.setTournamentMinutes(totalMinutes);
     setAggregateMinutes(totalMinutes);
@@ -83,8 +109,8 @@ export function TournamentPage() {
     }
     const matchConfig = {
       id: matchId,
-      teamSize: 7, // Default, can be changed in HomePage sheet
-      duration: 45, // Default
+      teamSize: 7,
+      duration: 45,
       carryover,
       lineup: players.slice(0, 7).map(p => p.id),
       deficits,
@@ -106,7 +132,7 @@ export function TournamentPage() {
       <ThemeToggle className="fixed top-4 right-4 z-50" />
       <Navigation />
       <div className="md:pl-64">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" data-testid="root-wrapper">
           <div className="py-8 md:py-10 lg:py-12">
             <div className="mb-10">
               <h1 className="text-4xl md:text-5xl font-bold text-foreground flex items-center gap-3">
@@ -136,12 +162,12 @@ export function TournamentPage() {
                   </CardContent>
                 </Card>
                 <h2 className="text-2xl font-bold">Matches</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-6" variants={stagger} initial="hidden" animate="visible">
                   {matches.length > 0 ? (
-                    matches.map((match, i) => (
-                      <motion.div key={match.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: i * 0.1 }}>
+                    matches.map((match) => (
+                      <motion.div key={match.id} variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
                         <Link to={`/match/${match.id}`}>
-                          <Card className="hover:shadow-lg hover:-translate-y-1 transition-transform duration-200 bg-card/50 backdrop-blur-sm">
+                          <Card className="hover:shadow-lg hover:-translate-y-1 transition-transform duration-200 bg-gradient-to-r from-heimdal-orange/5 to-heimdal-navy/5">
                             <CardHeader>
                               <CardTitle>vs {match.opponent}</CardTitle>
                               <CardDescription>{match.status}</CardDescription>
@@ -153,7 +179,7 @@ export function TournamentPage() {
                   ) : (
                     <p className="text-muted-foreground md:col-span-2">{t('tournament.noMatches')}</p>
                   )}
-                </div>
+                </motion.div>
               </div>
               <div className="lg:col-span-1">
                 <Card>
